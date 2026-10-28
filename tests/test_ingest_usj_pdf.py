@@ -2,8 +2,18 @@
 
 from __future__ import annotations
 
+import json
+import zipfile
+from pathlib import Path
+
 import pytest
 
+try:
+    import pymupdf as fitz
+except ImportError:  # pragma: no cover
+    import fitz  # type: ignore[no-redef]
+
+from beresbirag.config import resolve_data_file
 from beresbirag.ingestion.pdf_outline_parser import (
     BookOutlineIndex,
     parse_book_outlines,
@@ -14,13 +24,156 @@ from beresbirag.models.books import BSB_BOOKS
 from beresbirag.models.schemas import ChunkDocument, SourceType
 
 
+def build_synthetic_outline_pdf(tmp_path: Path) -> Path:
+    """Create a 3-page synthetic outlines PDF conforming to the parser's page offset."""
+    doc = fitz.open()
+    doc.new_page()  # Page 0 (cover)
+    doc.new_page()  # Page 1 (intro)
+    page2 = doc.new_page()  # Page 2 (FIRST_OUTLINE_PAGE_INDEX)
+    lines = [
+        "Genesis",
+        "Outline",
+        "1. God and the World ( 1:1–2:25 )",
+        "a. The Creation ( 1:1–2:3 )",
+        "i. The Six Days of Creation ( 1:1–31 )",
+        "1. The First Day: Light ( 1:1–5 )",
+    ]
+    page2.insert_text((50, 72), "\n".join(lines))
+    pdf_path = tmp_path / "synthetic_outlines.pdf"
+    doc.save(str(pdf_path))
+    doc.close()
+    return pdf_path
+
+
+def build_synthetic_usj_zip(tmp_path: Path) -> Path:
+    """Create a minimal USJ 3.1 ZIP archive containing Genesis and Philemon."""
+    gen_doc = {
+        "type": "USJ",
+        "version": "3.1",
+        "content": [
+            {"type": "chapter", "marker": "c", "number": "1"},
+            {"type": "para", "marker": "s1", "content": ["The Creation"]},
+            {
+                "type": "para",
+                "marker": "r",
+                "content": [{"type": "ref", "loc": "JHN 1:1-5", "content": ["John 1:1–5"]}],
+            },
+            {
+                "type": "para",
+                "marker": "p",
+                "content": [
+                    {"type": "verse", "marker": "v", "number": "1"},
+                    "In the beginning God created the heavens and the earth.",
+                    {"type": "verse", "marker": "v", "number": "2"},
+                    "Now the earth was formless and void.",
+                ],
+            },
+            {
+                "type": "para",
+                "marker": "pmo",
+                "content": [
+                    {"type": "verse", "marker": "v", "number": "3"},
+                    "And God said, 'Let there be light,' and there was light.",
+                    {"type": "note", "marker": "f", "content": ["1:3 Cited in 2 Corinthians 4:6"]},
+                ],
+            },
+        ],
+    }
+    phm_verses = []
+    for v in range(1, 15):
+        phm_verses.extend([{"type": "verse", "marker": "v", "number": str(v)}, f"Verse {v} text."])
+    phm_doc = {
+        "type": "USJ",
+        "version": "3.1",
+        "content": [
+            {"type": "chapter", "marker": "c", "number": "1"},
+            {"type": "para", "marker": "p", "content": phm_verses},
+        ],
+    }
+
+    zip_path = tmp_path / "synthetic_usj.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("bsb_usj/GEN.usj", json.dumps(gen_doc))
+        zf.writestr("bsb_usj/PHM.usj", json.dumps(phm_doc))
+    return zip_path
+
+
+def test_synthetic_outline_parsing_and_breadcrumbs(tmp_path: Path) -> None:
+    pdf_path = build_synthetic_outline_pdf(tmp_path)
+    index, chunks = parse_book_outlines(pdf_path)
+    assert "GEN" in index.nodes_by_book
+    assert len(index.nodes_by_book["GEN"]) == 4
+
+    crumb = index.get_outline_breadcrumbs("GEN", 1, 1)
+    assert crumb is not None
+    assert crumb == "1. God and the World > a. The Creation > i. The Six Days of Creation > 1. The First Day: Light"
+
+    assert len(chunks) == 1
+    chunk = chunks[0]
+    assert chunk.chunk_id == "outline:GEN:overview"
+    assert chunk.metadata.source_type == SourceType.BOOK_OUTLINE
+    assert chunk.metadata.book_code == "GEN"
+    assert "[Source: BSB Book Outline | Book: Genesis (GEN)" in chunk.text
+
+
+def test_synthetic_usj_chunking_with_outline(tmp_path: Path) -> None:
+    pdf_path = build_synthetic_outline_pdf(tmp_path)
+    outline_index = BookOutlineIndex.from_pdf(pdf_path)
+
+    zip_path = build_synthetic_usj_zip(tmp_path)
+    chunks = list(
+        iter_usj_scripture_chunks(
+            zip_path=zip_path,
+            outline_index=outline_index,
+            book_filter={"GEN"},
+        )
+    )
+    assert len(chunks) == 1
+    chunk = chunks[0]
+    assert chunk.chunk_id == "scripture:GEN:1:1-3:0"
+    assert chunk.metadata.book_code == "GEN"
+    assert chunk.metadata.chapter == 1
+    assert chunk.metadata.verse_start == 1
+    assert chunk.metadata.verse_end == 3
+    assert chunk.metadata.verse_refs == ["GEN 1:1", "GEN 1:2", "GEN 1:3"]
+    assert chunk.metadata.section_heading == "The Creation"
+    assert chunk.metadata.cross_references == ["John 1:1–5"]
+    assert any("Cited in 2 Corinthians 4:6" in note for note in chunk.metadata.footnotes)
+    assert chunk.metadata.outline_path is not None
+    assert "1. God and the World" in chunk.metadata.outline_path
+    assert "[Genesis 1:1] In the beginning" in chunk.text
+    assert "Footnotes:" in chunk.text
+
+
+def test_synthetic_usj_sliding_window_overlap(tmp_path: Path) -> None:
+    zip_path = build_synthetic_usj_zip(tmp_path)
+    chunks = list(
+        iter_usj_scripture_chunks(
+            zip_path=zip_path,
+            book_filter={"PHM"},
+            max_verses_per_chunk=5,
+            verse_overlap=2,
+        )
+    )
+    assert len(chunks) > 1
+    assert all(len(c.metadata.verse_refs) <= 5 for c in chunks)
+    assert chunks[0].metadata.verse_refs == [f"PHM 1:{v}" for v in range(1, 6)]
+    assert chunks[1].metadata.verse_refs[0] == "PHM 1:4"
+    assert chunks[0].chunk_id.endswith(":0")
+    assert chunks[1].chunk_id.endswith(":1")
+
+
 @pytest.fixture(scope="module")
 def outline_index() -> BookOutlineIndex:
+    if not resolve_data_file("bsb_book_outlines.pdf").is_file():
+        pytest.skip("Original BSB Book Outlines PDF is unavailable")
     return BookOutlineIndex.from_pdf()
 
 
 @pytest.fixture(scope="module")
 def scripture_chunks(outline_index: BookOutlineIndex) -> list[ChunkDocument]:
+    if not resolve_data_file("bsb_usj.zip").is_file():
+        pytest.skip("Original BSB USJ archive is unavailable")
     return list(
         iter_usj_scripture_chunks(outline_index=outline_index, book_filter={"GEN", "JHN", "PHM"})
     )
@@ -57,6 +210,8 @@ def test_genesis_breadcrumb_is_hierarchical(outline_index: BookOutlineIndex) -> 
 
 
 def test_outline_chunk_documents() -> None:
+    if not resolve_data_file("bsb_book_outlines.pdf").is_file():
+        pytest.skip("Original BSB Book Outlines PDF is unavailable")
     index, chunks = parse_book_outlines()
     assert chunks
     assert len(index.nodes_by_book) == 66
@@ -133,3 +288,4 @@ def test_john_prologue(scripture_chunks: list[ChunkDocument]) -> None:
 def test_invalid_window_arguments() -> None:
     with pytest.raises(ValueError):
         list(iter_usj_scripture_chunks(book_filter={"PHM"}, max_verses_per_chunk=3, verse_overlap=3))
+
