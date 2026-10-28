@@ -1,0 +1,48 @@
+# Raw BSB Data Files (Primary & Supporting)
+bsb_usj.zip
+bsb_book_outlines.pdf
+bsb_concordance.xlsx
+bsb_topical_index.xlsx
+data/raw/
+data/processed/
+*.usj
+*.xlsx
+*.pdf
+*.zip
+
+# Multi-LLM Task Instructions, Plans & Agent Scratchpads
+implementation_plan.md
+tasks/
+TASK-*.md
+AGENTS.md
+CLAUDE.md
+.claude/
+.codex/
+.gemini/
+
+# Git Worktrees
+.worktrees/
+worktrees/
+
+# Vector DB & Caches
+qdrant_storage/
+.fastembed_cache/
+.huggingface_cache/
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Python / Conda / Test Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+.coverage
+htmlcov/

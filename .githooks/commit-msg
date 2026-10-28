@@ -1,0 +1,26 @@
+#!/bin/sh
+# Git commit-msg hook for beresbirag
+# Enforces single-contributor authorship (Hans Darmawan <work.hansdarmawan001@gmail.com>)
+# and strips any AI Co-authored-by or attribution trailers.
+
+COMMIT_MSG_FILE="$1"
+
+EXPECTED_NAME="Hans Darmawan"
+EXPECTED_EMAIL="work.hansdarmawan001@gmail.com"
+
+ACTUAL_NAME="${GIT_AUTHOR_NAME:-$(git config user.name)}"
+ACTUAL_EMAIL="${GIT_AUTHOR_EMAIL:-$(git config user.email)}"
+
+if [ "$ACTUAL_NAME" != "$EXPECTED_NAME" ] || [ "$ACTUAL_EMAIL" != "$EXPECTED_EMAIL" ]; then
+    echo "ERROR: Invalid Git author '$ACTUAL_NAME <$ACTUAL_EMAIL>'." >&2
+    echo "Commits in beresbirag MUST be authored exclusively by: $EXPECTED_NAME <$EXPECTED_EMAIL>" >&2
+    exit 1
+fi
+
+# Strip Co-authored-by trailers and AI attribution lines in-place
+if [ -f "$COMMIT_MSG_FILE" ]; then
+    grep -Eiv '^[[:space:]]*(Co-authored-by:|Generated with \[?(Claude|Codex|Antigravity)|🤖 Generated with)' "$COMMIT_MSG_FILE" > "${COMMIT_MSG_FILE}.tmp" || true
+    mv "${COMMIT_MSG_FILE}.tmp" "$COMMIT_MSG_FILE"
+fi
+
+exit 0
