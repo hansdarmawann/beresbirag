@@ -16,32 +16,21 @@ logger = logging.getLogger(__name__)
 _auto_embedding_warning_emitted = False
 
 
-def find_repo_root() -> Path:
-    """Locate the current workspace root (or main repo root when inside .worktrees/<name>)."""
-    here = Path(__file__).resolve()
-    # src/beresbirag/config.py -> parents[2] is workspace/worktree root
-    wt_or_repo = here.parents[2]
-    return wt_or_repo
+def resolve_data_file(path: str | Path, base_dir: str | Path | None = None) -> Path:
+    """Resolve a raw BSB data file path against a base directory.
 
-
-def resolve_data_file(path: str | Path) -> Path:
-    """Resolve a raw BSB data file path, falling back to the main repo root if inside a Git worktree."""
+    - Absolute paths are returned unchanged.
+    - Relative paths are resolved against base_dir (or BSB_DATA_DIR / current directory).
+    """
     candidate = Path(path)
-    if candidate.is_file():
-        return candidate.resolve()
-
-    wt_root = find_repo_root()
-    wt_candidate = wt_root / candidate.name
-    if wt_candidate.is_file():
-        return wt_candidate.resolve()
-
-    # Check if wt_root is inside <main_repo>/.worktrees/<wt_name>
-    if wt_root.parent.name in {".worktrees", "worktrees"}:
-        main_repo_candidate = wt_root.parent.parent / candidate.name
-        if main_repo_candidate.is_file():
-            return main_repo_candidate.resolve()
-
-    return candidate
+    if candidate.is_absolute():
+        return candidate
+    resolved_base = (
+        Path(base_dir)
+        if base_dir is not None
+        else Path(os.environ.get("BSB_DATA_DIR") or get_settings().bsb_data_dir)
+    )
+    return resolved_base / candidate
 
 
 class Settings(BaseSettings):
@@ -135,6 +124,7 @@ class Settings(BaseSettings):
     ui_password: str = Field(default="", alias="UI_PASSWORD")
 
     # Raw BSB Source File Paths
+    bsb_data_dir: str = Field(default=".", alias="BSB_DATA_DIR")
     bsb_usj_zip_path: str = Field(default="./bsb_usj.zip", alias="BSB_USJ_ZIP_PATH")
     bsb_outlines_pdf_path: str = Field(
         default="./bsb_book_outlines.pdf", alias="BSB_OUTLINES_PDF_PATH"
@@ -201,19 +191,19 @@ class Settings(BaseSettings):
 
     @property
     def usj_zip_file(self) -> Path:
-        return resolve_data_file(self.bsb_usj_zip_path)
+        return resolve_data_file(self.bsb_usj_zip_path, self.bsb_data_dir)
 
     @property
     def outlines_pdf_file(self) -> Path:
-        return resolve_data_file(self.bsb_outlines_pdf_path)
+        return resolve_data_file(self.bsb_outlines_pdf_path, self.bsb_data_dir)
 
     @property
     def topical_xlsx_file(self) -> Path:
-        return resolve_data_file(self.bsb_topical_xlsx_path)
+        return resolve_data_file(self.bsb_topical_xlsx_path, self.bsb_data_dir)
 
     @property
     def concordance_xlsx_file(self) -> Path:
-        return resolve_data_file(self.bsb_concordance_xlsx_path)
+        return resolve_data_file(self.bsb_concordance_xlsx_path, self.bsb_data_dir)
 
 
 @lru_cache(maxsize=1)

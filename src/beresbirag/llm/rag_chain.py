@@ -29,6 +29,7 @@ from beresbirag.models.schemas import (
     RAGResponse,
     RetrievalResult,
 )
+from beresbirag.retrieval.formatting import format_context_blocks as _retrieval_format_context_blocks
 from beresbirag.retrieval.query_router import QueryPlan
 
 
@@ -44,21 +45,16 @@ class PreparedQuery:
     prepared_at: float = 0.0
 
 
-def format_context_blocks(results: list[RetrievalResult]) -> str:
-    """Format retrieved results into numbered, citation-anchored context blocks."""
-    if not results:
-        return "No relevant context found in the Berean Standard Bible corpus."
+DEFAULT_EMPTY_CONTEXT = "No relevant context found in the Berean Standard Bible corpus."
 
-    blocks: list[str] = []
-    for idx, res in enumerate(results, start=1):
-        meta = res.chunk.metadata
-        ref = meta.canonical_ref or res.chunk.chunk_id
-        source_type_val = (
-            meta.source_type.value if hasattr(meta.source_type, "value") else str(meta.source_type)
-        )
-        header = f"=== SOURCE [{idx}] | Reference: {ref} | Type: {source_type_val} ==="
-        blocks.append(f"{header}\n{res.chunk.text.strip()}")
-    return "\n\n".join(blocks)
+
+def format_context_blocks(
+    results: list[RetrievalResult],
+    empty_message: str | None = DEFAULT_EMPTY_CONTEXT,
+) -> str:
+    """Format retrieved results into numbered, citation-anchored context blocks."""
+    msg = empty_message if empty_message is not None else DEFAULT_EMPTY_CONTEXT
+    return _retrieval_format_context_blocks(results, empty_message=msg)
 
 
 def build_citations(results: list[RetrievalResult]) -> list[CitationItem]:
