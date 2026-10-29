@@ -2,7 +2,7 @@
 
 **`beresbirag`** is a production-grade, multi-corpus Retrieval-Augmented Generation (RAG) system built with **Python 3.11+**, **LangChain (LCEL)**, and **Qdrant Hybrid Search (Dense + Sparse BM25 Reciprocal Rank Fusion)** over the complete public-domain **Berean Standard Bible (BSB)** ecosystem.
 
-It is specifically engineered so **small, fast, minimal-effort LLMs** (OpenAI `gpt-4o-mini` / `gpt-5-nano` and Anthropic `claude-3-5-haiku-latest` / `claude-haiku-4-5`) achieve high-precision, zero-hallucination biblical grounding without expensive reasoning tokens.
+It is specifically engineered so **small, fast, minimal-effort LLMs** (OpenAI `gpt-4o-mini` / `gpt-5-nano` and Anthropic `claude-haiku-5-5` / `claude-haiku-4-5`) achieve high-precision, zero-hallucination biblical grounding without expensive reasoning tokens.
 
 ---
 
@@ -87,6 +87,14 @@ conda run -n beresbirag python ./scripts/ingest_all.py --recreate --books GEN,EX
 conda run -n beresbirag python ./scripts/ingest_all.py --recreate
 ```
 
+### Upgrading existing collections
+
+Collections created before the BM25 IDF fix were built with `modifier=None` on the sparse vector, so BM25 scores ignore inverse document frequency. Queries against such a collection (or one whose dense vector size no longer matches the active embedding model) now fail fast with a `CollectionConfigError`. Rebuild the collection once:
+
+```powershell
+conda run -n beresbirag python ./scripts/ingest_all.py --recreate
+```
+
 ---
 
 ## 4. CLI & FastAPI Usage Examples
@@ -101,7 +109,7 @@ conda run -n beresbirag beresbirag retrieve "Genesis 1:1-5" --top-k 5
 conda run -n beresbirag beresbirag query "What does Genesis 1:1-5 teach about light, and what footnotes are included?" --provider openai --model gpt-4o-mini --effort minimal
 
 # Ask a grounded question with Anthropic (minimal effort)
-conda run -n beresbirag beresbirag query "How does the BSB Book Outline structure the Gospel of John?" --provider anthropic --model claude-3-5-haiku-latest --effort minimal
+conda run -n beresbirag beresbirag query "How does the BSB Book Outline structure the Gospel of John?" --provider anthropic --model claude-haiku-5-5 --effort minimal
 ```
 
 ### FastAPI Endpoints (`src/beresbirag/api.py`)

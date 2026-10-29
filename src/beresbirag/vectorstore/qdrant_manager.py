@@ -36,6 +36,12 @@ INTEGER_INDEX_FIELDS: tuple[str, ...] = (
     "metadata.verse_end",
 )
 
+RECREATE_REMEDY = "Re-run: conda run -n beresbirag python ./scripts/ingest_all.py --recreate"
+
+
+class CollectionConfigError(RuntimeError):
+    """Raised when an existing Qdrant collection is incompatible with the active configuration."""
+
 
 class QdrantManager:
     """Manages the Qdrant hybrid vector collection (`bsb_rag`) and search operations."""
@@ -54,6 +60,7 @@ class QdrantManager:
         self._dense_embeddings = dense_embeddings
         self._sparse_embeddings = sparse_embeddings
         self._dense_vector_size = dense_vector_size
+        self._validated = False
 
     def _create_client(self) -> QdrantClient:
         mode = self.settings.qdrant_mode
@@ -107,11 +114,56 @@ class QdrantManager:
                 },
                 sparse_vectors_config={
                     SPARSE_VECTOR_NAME: models.SparseVectorParams(
-                        index=models.SparseIndexParams(on_disk=False)
+                        index=models.SparseIndexParams(on_disk=False),
+                        # Qdrant/bm25 emits TF-only weights; IDF must be applied server-side.
+                        modifier=models.Modifier.IDF,
                     )
                 },
             )
             self._ensure_payload_indexes()
+            # Freshly created from the active configuration, so it is valid by construction.
+            self._validated = True
+
+    def validate_collection(self) -> None:
+        """Raise CollectionConfigError if the existing collection mismatches the active config."""
+        if not self.collection_exists():
+            return
+        params = self.client.get_collection(self.collection_name).config.params
+
+        vectors = params.vectors
+        dense_params = vectors.get(DENSE_VECTOR_NAME) if isinstance(vectors, dict) else vectors
+        if dense_params is None:
+            raise CollectionConfigError(
+                f"Collection '{self.collection_name}' has no '{DENSE_VECTOR_NAME}' dense vector. "
+                f"{RECREATE_REMEDY}"
+            )
+        if dense_params.size != self.dense_vector_size:
+            provider = self.settings.resolved_embedding_provider
+            model = (
+                self.settings.openai_embedding_model
+                if provider == "openai"
+                else self.settings.fastembed_dense_model
+            )
+            raise CollectionConfigError(
+                f"Collection '{self.collection_name}' stores {dense_params.size}-dim dense vectors, "
+                f"but the active embedding provider '{provider}' (model '{model}') produces "
+                f"{self.dense_vector_size}-dim vectors. {RECREATE_REMEDY}"
+            )
+
+        sparse_params = (params.sparse_vectors or {}).get(SPARSE_VECTOR_NAME)
+        modifier = getattr(sparse_params, "modifier", None)
+        if modifier != models.Modifier.IDF:
+            raise CollectionConfigError(
+                f"Collection '{self.collection_name}' sparse vector '{SPARSE_VECTOR_NAME}' has "
+                f"modifier={modifier!s}, but BM25 requires modifier=idf. {RECREATE_REMEDY}"
+            )
+
+    def _ensure_validated(self) -> None:
+        """Validate the collection once per manager instance (skipped while it does not exist)."""
+        if self._validated or not self.collection_exists():
+            return
+        self.validate_collection()
+        self._validated = True
 
     def _ensure_payload_indexes(self) -> None:
         """Create keyword and integer payload indexes for fast metadata filtering."""
@@ -298,6 +350,7 @@ class QdrantManager:
         qdrant_filter: models.Filter | None = None,
     ) -> list[RetrievalResult]:
         """Execute Qdrant Hybrid (Dense + Sparse BM25 RRF) search."""
+        self._ensure_validated()
         top_k = k or self.settings.retrieval_initial_k
         store = self.get_vector_store()
         docs_and_scores = store.similarity_search_with_score(
@@ -323,6 +376,7 @@ class QdrantManager:
         limit: int = 20,
     ) -> list[RetrievalResult]:
         """Deterministically fetch chunks matching an exact Qdrant payload filter."""
+        self._ensure_validated()
         if not self.collection_exists():
             return []
         records, _ = self.client.scroll(

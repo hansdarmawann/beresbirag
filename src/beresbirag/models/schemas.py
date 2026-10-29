@@ -36,6 +36,13 @@ class QueryIntent(StrEnum):
     HYBRID_GENERAL = "hybrid_general"
 
 
+class AnswerMode(StrEnum):
+    """How a RAGResponse answer was produced."""
+
+    LLM = "llm"
+    INSUFFICIENT_CONTEXT = "insufficient_context"
+
+
 class VerseRange(BaseModel):
     """Parsed Bible reference or verse range."""
 
@@ -183,5 +190,6 @@ class RAGResponse(BaseModel):
     provider: str = "openai"
     model: str = "gpt-4o-mini"
     effort: str = "minimal"
+    answer_mode: AnswerMode = AnswerMode.LLM
     citations: list[CitationItem] = Field(default_factory=list)
     retrieved_chunks: list[RetrievalResult] = Field(default_factory=list)

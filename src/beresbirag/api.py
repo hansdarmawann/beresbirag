@@ -9,14 +9,30 @@ from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from beresbirag.config import Settings, get_settings
+from beresbirag.llm.factory import MissingAPIKeyError, ProviderModelMismatchError
 from beresbirag.llm.rag_chain import BSBRAGPipeline
 from beresbirag.models.schemas import RAGResponse, RetrievalResult
+from beresbirag.vectorstore.qdrant_manager import CollectionConfigError
 
 app = FastAPI(
     title="Berean Standard Bible RAG API",
     description="Grounded Scripture retrieval and small-LLM QA service powered by LangChain and Qdrant.",
     version="0.1.0",
 )
+
+# Known configuration errors and their HTTP status; anything else maps to 500.
+CONFIG_ERROR_STATUS: tuple[tuple[type[Exception], int], ...] = (
+    (MissingAPIKeyError, 503),
+    (ProviderModelMismatchError, 422),
+    (CollectionConfigError, 503),
+)
+
+
+def _to_http_exception(exc: Exception) -> HTTPException:
+    for exc_type, status_code in CONFIG_ERROR_STATUS:
+        if isinstance(exc, exc_type):
+            return HTTPException(status_code=status_code, detail=str(exc))
+    return HTTPException(status_code=500, detail=str(exc))
 
 
 class RetrieveRequest(BaseModel):
@@ -111,7 +127,7 @@ def retrieve_endpoint(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise _to_http_exception(exc) from exc
 
 
 @app.post("/query", response_model=RAGResponse)
@@ -132,4 +148,4 @@ def query_endpoint(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise _to_http_exception(exc) from exc

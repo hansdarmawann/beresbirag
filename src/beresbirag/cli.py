@@ -8,12 +8,23 @@ from typing import Any
 import typer
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
 from beresbirag.config import Settings, get_settings
+from beresbirag.llm.factory import MissingAPIKeyError, ProviderModelMismatchError
 from beresbirag.llm.rag_chain import BSBRAGPipeline
 from beresbirag.models.schemas import RetrievalResult
+from beresbirag.vectorstore.qdrant_manager import CollectionConfigError
+
+# Configuration errors surfaced to the user with exit code 2.
+CONFIG_ERRORS: tuple[type[Exception], ...] = (
+    MissingAPIKeyError,
+    ProviderModelMismatchError,
+    CollectionConfigError,
+)
+CONFIG_ERROR_EXIT_CODE = 2
 
 app = typer.Typer(
     name="beresbirag",
@@ -51,6 +62,11 @@ def _get_retriever(settings: Settings) -> Any:
             "[yellow]Ensure Qdrant is running or an in-memory/test retriever is provided.[/yellow]"
         )
         raise typer.Exit(code=1) from exc
+
+
+def _exit_with_config_error(exc: Exception) -> typer.Exit:
+    console.print(f"[bold red]Configuration error:[/bold red] [red]{escape(str(exc))}[/red]")
+    return typer.Exit(code=CONFIG_ERROR_EXIT_CODE)
 
 
 def _render_retrieval_table(
@@ -101,8 +117,11 @@ def retrieve_command(
     settings = get_settings()
     retriever = _get_retriever(settings)
 
-    with console.status("[bold cyan]Searching Berean Standard Bible corpus..."):
-        plan, results = retriever.retrieve(question, top_k=top_k)
+    try:
+        with console.status("[bold cyan]Searching Berean Standard Bible corpus..."):
+            plan, results = retriever.retrieve(question, top_k=top_k)
+    except CollectionConfigError as exc:
+        raise _exit_with_config_error(exc) from exc
 
     intent_label = (
         getattr(plan, "intent", None)
@@ -131,23 +150,23 @@ def query_command(
     question: str = typer.Argument(
         ..., help="The Bible question or passage inquiry to answer"
     ),
-    provider: str = typer.Option(
-        "openai",
+    provider: str | None = typer.Option(
+        None,
         "--provider",
         "-p",
-        help="LLM provider: 'openai' or 'anthropic'",
+        help="LLM provider: 'openai' or 'anthropic' (default: LLM_PROVIDER)",
     ),
     model: str | None = typer.Option(
         None,
         "--model",
         "-m",
-        help="Specific model name (e.g. gpt-4o-mini, claude-3-5-haiku-latest)",
+        help="Specific model name (e.g. gpt-4o-mini, claude-haiku-5-5; default: provider default)",
     ),
-    effort: str = typer.Option(
-        "minimal",
+    effort: str | None = typer.Option(
+        None,
         "--effort",
         "-e",
-        help="Reasoning effort: 'minimal', 'low', 'medium', 'high'",
+        help="Reasoning effort: 'minimal', 'low', 'medium', 'high' (default: LLM_EFFORT)",
     ),
     top_k: int = typer.Option(
         6, "--top-k", "-k", help="Number of context chunks to retrieve"
@@ -157,29 +176,34 @@ def query_command(
     settings = get_settings()
     retriever = _get_retriever(settings)
 
-    if _custom_pipeline_factory is not None:
-        pipeline = _custom_pipeline_factory(
-            retriever=retriever,
-            provider=provider,
-            model_name=model,
-            effort=effort,
-        )
-    else:
-        pipeline = BSBRAGPipeline(
-            retriever=retriever,
-            settings=settings,
-            provider=provider,  # type: ignore[arg-type]
-            model_name=model,
-            effort=effort,  # type: ignore[arg-type]
-        )
+    try:
+        if _custom_pipeline_factory is not None:
+            pipeline = _custom_pipeline_factory(
+                retriever=retriever,
+                provider=provider,
+                model_name=model,
+                effort=effort,
+            )
+        else:
+            pipeline = BSBRAGPipeline(
+                retriever=retriever,
+                settings=settings,
+                provider=provider,  # type: ignore[arg-type]
+                model_name=model,
+                effort=effort,  # type: ignore[arg-type]
+            )
 
-    with console.status("[bold green]Querying BSB RAG Pipeline..."):
-        response = pipeline.ask(question, top_k=top_k)
+        with console.status("[bold green]Querying BSB RAG Pipeline..."):
+            response = pipeline.ask(question, top_k=top_k)
+    except CONFIG_ERRORS as exc:
+        raise _exit_with_config_error(exc) from exc
 
     console.print(
         Panel(
             Markdown(response.answer),
-            title=f"BSB Answer [{response.provider} / {response.model} | effort: {response.effort}]",
+            title=escape(
+                f"BSB Answer [{response.provider} / {response.model} | effort: {response.effort}]"
+            ),
             border_style="green",
         )
     )

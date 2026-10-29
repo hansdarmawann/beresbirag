@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+_auto_embedding_warning_emitted = False
 
 
 def find_repo_root() -> Path:
@@ -50,7 +55,8 @@ class Settings(BaseSettings):
 
     # LLM Provider & Minimal-Effort Settings
     llm_provider: Literal["openai", "anthropic"] = Field(default="openai", alias="LLM_PROVIDER")
-    llm_model: str = Field(default="gpt-4o-mini", alias="LLM_MODEL")
+    # None/empty = provider default (see beresbirag.llm.factory.DEFAULT_MODELS)
+    llm_model: str | None = Field(default=None, alias="LLM_MODEL")
     llm_effort: Literal["minimal", "low", "medium", "high"] = Field(
         default="minimal", alias="LLM_EFFORT"
     )
@@ -61,7 +67,7 @@ class Settings(BaseSettings):
 
     # Dense & Sparse Embedding Settings
     embedding_provider: Literal["auto", "openai", "fastembed"] = Field(
-        default="auto", alias="EMBEDDING_PROVIDER"
+        default="fastembed", alias="EMBEDDING_PROVIDER"
     )
     openai_embedding_model: str = Field(
         default="text-embedding-3-small", alias="OPENAI_EMBEDDING_MODEL"
@@ -105,10 +111,18 @@ class Settings(BaseSettings):
     @property
     def resolved_embedding_provider(self) -> Literal["openai", "fastembed"]:
         """Resolve 'auto' to 'openai' when OPENAI_API_KEY is set, otherwise 'fastembed'."""
+        global _auto_embedding_warning_emitted
         if self.embedding_provider == "openai":
             return "openai"
         if self.embedding_provider == "fastembed":
             return "fastembed"
+        if not _auto_embedding_warning_emitted:
+            _auto_embedding_warning_emitted = True
+            logger.warning(
+                "EMBEDDING_PROVIDER=auto picks OpenAI (1536-dim) when OPENAI_API_KEY is set and "
+                "FastEmbed (384-dim) otherwise, so adding a key later silently changes vector "
+                "dimensions and breaks existing collections. Set EMBEDDING_PROVIDER explicitly."
+            )
         if self.openai_api_key and self.openai_api_key.strip():
             return "openai"
         return "fastembed"
