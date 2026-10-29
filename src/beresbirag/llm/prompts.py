@@ -40,3 +40,19 @@ BSB_RAG_PROMPT: ChatPromptTemplate = ChatPromptTemplate.from_messages(
         HumanMessagePromptTemplate.from_template(USER_PROMPT_TEMPLATE),
     ]
 )
+
+INSUFFICIENT_CONTEXT_ANSWER = (
+    "The retrieved Berean Standard Bible context does not contain sufficient "
+    "information to answer this question."
+)
+
+COMPACT_SYSTEM_PROMPT = (
+    "Answer only from the SOURCES. Cite like [John 3:16]. "
+    "If the sources do not answer, reply exactly: "
+    f"{INSUFFICIENT_CONTEXT_ANSWER} "
+    "Answer in the user's language. Keep the answer short."
+)
+BSB_RAG_PROMPT_COMPACT = ChatPromptTemplate.from_messages([
+    ("system", COMPACT_SYSTEM_PROMPT),
+    ("human", "SOURCES:\n{context}\n\nQuestion: {question}\nAnswer:"),
+])

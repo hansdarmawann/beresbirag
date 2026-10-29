@@ -40,6 +40,7 @@ class AnswerMode(StrEnum):
     """How a RAGResponse answer was produced."""
 
     LLM = "llm"
+    FAST_PATH = "fast_path"
     INSUFFICIENT_CONTEXT = "insufficient_context"
 
 

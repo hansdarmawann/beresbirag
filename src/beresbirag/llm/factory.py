@@ -12,7 +12,7 @@ from langchain_openai import ChatOpenAI
 from beresbirag.config import Settings, get_settings
 
 ReasoningEffort = Literal["minimal", "low", "medium", "high"]
-ProviderType = Literal["openai", "anthropic"]
+ProviderType = Literal["openai", "anthropic", "ollama"]
 
 REASONING_PREFIXES = ("gpt-5", "gpt-6", "o1", "o3", "o4")
 
@@ -20,12 +20,14 @@ REASONING_PREFIXES = ("gpt-5", "gpt-6", "o1", "o3", "o4")
 DEFAULT_MODELS: dict[str, str] = {
     "openai": "gpt-4o-mini",
     "anthropic": "claude-haiku-5-5",
+    "ollama": "qwen2.5:1.5b",
 }
 
 # Model-name prefixes that clearly belong to a *different* cloud provider.
 FOREIGN_MODEL_PREFIXES: dict[str, tuple[str, ...]] = {
     "openai": ("claude-",),
     "anthropic": ("gpt-", "o1", "o3", "o4", "chatgpt-"),
+    "ollama": ("claude-",),
 }
 
 # Provider -> (Settings attribute, environment variable) holding its API key.
@@ -41,6 +43,10 @@ class ProviderModelMismatchError(ValueError):
 
 class MissingAPIKeyError(ValueError):
     """Raised when no API key is configured for the selected LLM provider."""
+
+
+class ProviderUnavailableError(ValueError):
+    """Raised when offline mode prevents calling a cloud provider."""
 
 
 def is_reasoning_model(model_name: str) -> bool:
@@ -113,6 +119,8 @@ def create_chat_model(
         MissingAPIKeyError: No API key found for the provider.
     """
     resolved_settings = settings or get_settings()
+    if resolved_settings.offline_mode and (provider or resolved_settings.llm_provider).lower() in {"openai", "anthropic"}:
+        raise ProviderUnavailableError("offline mode: use --provider ollama")
     active_provider, active_model = resolve_llm_target(
         provider, model_name, resolved_settings
     )
@@ -120,6 +128,14 @@ def create_chat_model(
     active_temp = (
         temperature if temperature is not None else resolved_settings.llm_temperature
     )
+    if active_provider == "ollama":
+        from langchain_ollama import ChatOllama
+
+        return ChatOllama(
+            model=active_model, base_url=resolved_settings.ollama_base_url, temperature=0.0,
+            num_ctx=resolved_settings.llm_num_ctx, num_predict=resolved_settings.llm_num_predict,
+            num_thread=resolved_settings.llm_num_thread, keep_alive="30m", reasoning=False,
+        )
     resolved_key = _resolve_api_key(active_provider, api_key, resolved_settings)
 
     if active_provider == "openai":

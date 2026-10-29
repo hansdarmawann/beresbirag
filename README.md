@@ -166,3 +166,11 @@ powershell -ExecutionPolicy Bypass -File ./scripts/manage_worktrees.ps1 -Action 
 conda run -n beresbirag ruff check ./src ./scripts ./tests
 conda run -n beresbirag pytest -v
 ```
+
+## Offline mode
+
+Use Ollama and native Qdrant with `RESOURCE_PROFILE=low` and `OFFLINE_MODE=true`
+for local Bible search and answers. The low profile reduces context, retrieval,
+and CPU thread budgets and enables deterministic passage/count answers.
+See [Offline setup and model transfer](docs/OFFLINE.md) for build/target steps,
+the 4 GB RAM budget, diagnostics, and limitations.

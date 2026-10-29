@@ -20,15 +20,20 @@ if TYPE_CHECKING:
 class FastEmbedDenseEmbeddings(Embeddings):
     """LangChain Embeddings adapter around fastembed.TextEmbedding."""
 
-    def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5") -> None:
+    def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5", settings: Settings | None = None) -> None:
         self.model_name = model_name
+        self.settings = settings or get_settings()
         self._model: TextEmbedding | None = None
 
     def _get_model(self) -> TextEmbedding:
         if self._model is None:
             from fastembed import TextEmbedding
 
-            self._model = TextEmbedding(model_name=self.model_name)
+            self._model = TextEmbedding(
+                model_name=self.model_name, cache_dir=self.settings.model_cache_dir,
+                threads=self.settings.llm_num_thread,
+                **({"local_files_only": True} if self.settings.offline_mode else {}),
+            )
         return self._model
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
@@ -103,10 +108,14 @@ def create_dense_embeddings(settings: Settings | None = None) -> Embeddings:
             model=cfg.openai_embedding_model,
             api_key=cfg.openai_api_key,  # type: ignore[arg-type]
         )
-    return FastEmbedDenseEmbeddings(model_name=cfg.fastembed_dense_model)
+    return FastEmbedDenseEmbeddings(model_name=cfg.fastembed_dense_model, settings=cfg)
 
 
 def create_sparse_embeddings(settings: Settings | None = None) -> SparseEmbeddings:
     """Create the configured FastEmbed BM25 sparse embedding model."""
     cfg = settings or get_settings()
-    return FastEmbedSparse(model_name=cfg.fastembed_sparse_model)
+    return FastEmbedSparse(
+        model_name=cfg.fastembed_sparse_model, cache_dir=cfg.model_cache_dir,
+        threads=cfg.llm_num_thread,
+        **({"local_files_only": True} if cfg.offline_mode else {}),
+    )

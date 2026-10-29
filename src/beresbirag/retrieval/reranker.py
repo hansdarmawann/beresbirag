@@ -104,8 +104,8 @@ def deduplicate_results(results: list[RetrievalResult]) -> list[RetrievalResult]
     return list(merged.values())
 
 
-def _default_cache_dir() -> str:
-    return os.environ.get("FLASHRANK_CACHE_DIR") or str(Path.home() / ".cache" / "flashrank")
+def _default_cache_dir(settings: Settings | None = None) -> str:
+    return os.environ.get("FLASHRANK_CACHE_DIR") or (settings or get_settings()).model_cache_dir
 
 
 class PassageReranker:
@@ -134,9 +134,14 @@ class PassageReranker:
         try:
             from flashrank import Ranker
 
+            cache_dir = _default_cache_dir(self.settings)
+            # FlashRank has no local_files_only flag and downloads missing model
+            # directories even when HF_HUB_OFFLINE is set.
+            if self.settings.offline_mode and not (Path(cache_dir) / self.settings.reranker_model).is_dir():
+                raise FileNotFoundError("Offline FlashRank cache missing; run scripts/prefetch_models.py online first")
             self._ranker = Ranker(
                 model_name=self.settings.reranker_model,
-                cache_dir=_default_cache_dir(),
+                cache_dir=cache_dir,
                 log_level="WARNING",
             )
         except Exception as exc:  # offline, missing model, or runtime error
