@@ -27,11 +27,7 @@ SYSTEM_PROMPT = (
 )
 
 USER_PROMPT_TEMPLATE = (
-    "Context from the Berean Standard Bible (BSB):\n"
-    "{context}\n\n"
-    "Question:\n"
-    "{question}\n\n"
-    "Answer:"
+    "Context from the Berean Standard Bible (BSB):\n{context}\n\nQuestion:\n{question}\n\nAnswer:"
 )
 
 BSB_RAG_PROMPT: ChatPromptTemplate = ChatPromptTemplate.from_messages(
@@ -52,7 +48,9 @@ COMPACT_SYSTEM_PROMPT = (
     f"{INSUFFICIENT_CONTEXT_ANSWER} "
     "Answer in the user's language. Keep the answer short."
 )
-BSB_RAG_PROMPT_COMPACT = ChatPromptTemplate.from_messages([
-    ("system", COMPACT_SYSTEM_PROMPT),
-    ("human", "SOURCES:\n{context}\n\nQuestion: {question}\nAnswer:"),
-])
+BSB_RAG_PROMPT_COMPACT = ChatPromptTemplate.from_messages(
+    [
+        ("system", COMPACT_SYSTEM_PROMPT),
+        ("human", "SOURCES:\n{context}\n\nQuestion: {question}\nAnswer:"),
+    ]
+)

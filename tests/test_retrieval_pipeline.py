@@ -447,4 +447,3 @@ def test_format_context_and_langchain_retriever_adapter(
     assert docs[0].metadata["chunk_id"] == "scripture:PSA:23:1-6:0"
     assert docs[0].metadata["rank"] == 1
     assert docs[0].metadata["intent"] == QueryIntent.EXACT_PASSAGE.value
-

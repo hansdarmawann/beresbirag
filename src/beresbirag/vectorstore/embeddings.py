@@ -20,7 +20,9 @@ if TYPE_CHECKING:
 class FastEmbedDenseEmbeddings(Embeddings):
     """LangChain Embeddings adapter around fastembed.TextEmbedding."""
 
-    def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5", settings: Settings | None = None) -> None:
+    def __init__(
+        self, model_name: str = "BAAI/bge-small-en-v1.5", settings: Settings | None = None
+    ) -> None:
         self.model_name = model_name
         self.settings = settings or get_settings()
         self._model: TextEmbedding | None = None
@@ -30,9 +32,10 @@ class FastEmbedDenseEmbeddings(Embeddings):
             from fastembed import TextEmbedding
 
             self._model = TextEmbedding(
-                model_name=self.model_name, cache_dir=self.settings.model_cache_dir,
+                model_name=self.model_name,
+                cache_dir=self.settings.model_cache_dir,
                 threads=self.settings.llm_num_thread,
-                **({"local_files_only": True} if self.settings.offline_mode else {}),
+                **({"local_files_only": True} if self.settings.offline_mode else {}),  # type: ignore[arg-type] # FastEmbed TextEmbedding kwargs
             )
         return self._model
 
@@ -106,7 +109,7 @@ def create_dense_embeddings(settings: Settings | None = None) -> Embeddings:
     if provider == "openai":
         return OpenAIEmbeddings(
             model=cfg.openai_embedding_model,
-            api_key=cfg.openai_api_key,  # type: ignore[arg-type]
+            api_key=cfg.openai_api_key,  # type: ignore[call-arg] # langchain-openai OpenAIEmbeddings keyword argument
         )
     return FastEmbedDenseEmbeddings(model_name=cfg.fastembed_dense_model, settings=cfg)
 
@@ -115,7 +118,8 @@ def create_sparse_embeddings(settings: Settings | None = None) -> SparseEmbeddin
     """Create the configured FastEmbed BM25 sparse embedding model."""
     cfg = settings or get_settings()
     return FastEmbedSparse(
-        model_name=cfg.fastembed_sparse_model, cache_dir=cfg.model_cache_dir,
+        model_name=cfg.fastembed_sparse_model,
+        cache_dir=cfg.model_cache_dir,
         threads=cfg.llm_num_thread,
-        **({"local_files_only": True} if cfg.offline_mode else {}),
+        **({"local_files_only": True} if cfg.offline_mode else {}),  # type: ignore[arg-type] # FastEmbedSparse kwargs
     )

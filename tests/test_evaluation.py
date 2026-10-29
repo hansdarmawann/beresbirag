@@ -142,7 +142,10 @@ def test_context_coverage_counts_required_verses() -> None:
         id="R",
         category="range_completeness",
         query="Genesis 1:1-5",
-        expected={"source_type": "scripture", "verse_refs_all": [f"GEN 1:{v}" for v in range(1, 6)]},
+        expected={
+            "source_type": "scripture",
+            "verse_refs_all": [f"GEN 1:{v}" for v in range(1, 6)],
+        },
     )
     results = [_scripture("a", ["GEN 1:1", "GEN 1:2"]), _scripture("b", ["GEN 1:3", "GEN 2:1"])]
     assert context_coverage(case, results) == pytest.approx(0.6)
@@ -150,7 +153,9 @@ def test_context_coverage_counts_required_verses() -> None:
     results.append(_scripture("c", ["GEN 1:4", "GEN 1:5"]))
     assert context_coverage(case, results) == 1.0
     assert hit_rank(case, results) == 3
-    no_range = RetrievalCase(id="N", category="exact", query="q", expected={"verse_refs_any": ["GEN 1:1"]})
+    no_range = RetrievalCase(
+        id="N", category="exact", query="q", expected={"verse_refs_any": ["GEN 1:1"]}
+    )
     assert context_coverage(no_range, results) is None
     assert hit_rank(no_range, results) == 1
 
@@ -202,14 +207,19 @@ def test_must_cite_recall_handles_verses_labels_and_numbers() -> None:
     case = AnswerCase(
         id="A", query="q", must_cite=["REV 13:18", "BSB Topical Index: 666", "GEN 1:2"]
     )
-    report = CitationReport(valid=["Revelation 13:16-18", "Topical Index: 666"], unsupported=["Genesis 1:2"])
+    report = CitationReport(
+        valid=["Revelation 13:16-18", "Topical Index: 666"], unsupported=["Genesis 1:2"]
+    )
     assert must_cite_recall(case, _response("", AnswerMode.LLM, report)) == pytest.approx(2 / 3)
     numeric = CitationReport(valid=["1"])
     results = [_scripture("gen", ["GEN 1:1", "GEN 1:2"])]
-    assert must_cite_recall(
-        AnswerCase(id="B", query="q", must_cite=["GEN 1:2"]),
-        _response("", AnswerMode.LLM, numeric, results),
-    ) == 1.0
+    assert (
+        must_cite_recall(
+            AnswerCase(id="B", query="q", must_cite=["GEN 1:2"]),
+            _response("", AnswerMode.LLM, numeric, results),
+        )
+        == 1.0
+    )
     assert must_cite_recall(AnswerCase(id="C", query="q"), _response("", AnswerMode.LLM)) is None
 
 
@@ -218,7 +228,9 @@ def test_false_exact_match_for_unanswerable_plans() -> None:
         chunk=ChunkDocument(
             chunk_id="topical:666:0",
             text="t",
-            metadata=ChunkMetadata(chunk_id="topical:666:0", source_type=SourceType.TOPICAL_INDEX, topic="666"),
+            metadata=ChunkMetadata(
+                chunk_id="topical:666:0", source_type=SourceType.TOPICAL_INDEX, topic="666"
+            ),
         )
     )
     assert has_false_exact_match(route_query("Topic: 666"), [topical])
@@ -260,7 +272,15 @@ def test_verify_cases_reports_unsatisfiable_expectations() -> None:
     ]
     issues = verify_cases(retrieval, answers, corpus)
     failing = {issue.case_id for issue in issues}
-    assert failing == {"BADVERSE", "BADTEXT", "BADTOPIC", "BADWORD", "ANSWERABLE", "WORDEXISTS", "ABAD"}
+    assert failing == {
+        "BADVERSE",
+        "BADTEXT",
+        "BADTOPIC",
+        "BADWORD",
+        "ANSWERABLE",
+        "WORDEXISTS",
+        "ABAD",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +336,9 @@ class _StubRetriever:
     """Returns the same scripture chunk for every query."""
 
     def retrieve(self, query: str, top_k: int | None = None):
-        return route_query(query), [_scripture("scripture:JHN:1:1-1:0", ["JHN 1:1"], "In the beginning was the Word")]
+        return route_query(query), [
+            _scripture("scripture:JHN:1:1-1:0", ["JHN 1:1"], "In the beginning was the Word")
+        ]
 
 
 def test_evaluate_retrieval_legacy_report_structure(tmp_path: Path, monkeypatch) -> None:

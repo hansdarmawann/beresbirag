@@ -163,7 +163,11 @@ def verify_corpus(
             continue
         actual_bytes, actual_sha = compute_sha256(file_path)
         hashes[name] = actual_sha
-        if isinstance(expected_bytes, int) and expected_bytes > 0 and actual_bytes != expected_bytes:
+        if (
+            isinstance(expected_bytes, int)
+            and expected_bytes > 0
+            and actual_bytes != expected_bytes
+        ):
             errors.append(
                 f"Byte size mismatch for '{name}': expected {expected_bytes}, got {actual_bytes}"
             )

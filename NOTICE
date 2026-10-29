@@ -1,0 +1,9 @@
+Berean Standard Bible (BSB) Hybrid RAG System (`beresbirag`)
+Copyright (c) 2026 Hans Darmawan
+
+This software is licensed under the MIT License.
+
+Raw Berean Standard Bible (BSB) source files (including `bsb_usj.zip`, `bsb_book_outlines.pdf`,
+`bsb_topical_index.xlsx`, and `bsb_concordance.xlsx`) are NOT distributed in this repository.
+Users must obtain these source files directly from the official Berean Standard Bible source
+(https://berean.bible/) and adhere to the Berean Standard Bible licensing and copyright terms.

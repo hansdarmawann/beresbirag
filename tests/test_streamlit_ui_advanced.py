@@ -29,11 +29,7 @@ from beresbirag.retrieval.query_router import QueryPlan
 from beresbirag.ui.services import set_service_factory
 
 APP_PATH = str(
-    Path(__file__).resolve().parent.parent
-    / "src"
-    / "beresbirag"
-    / "ui"
-    / "streamlit_app.py"
+    Path(__file__).resolve().parent.parent / "src" / "beresbirag" / "ui" / "streamlit_app.py"
 )
 
 
@@ -161,9 +157,7 @@ def test_history_holds_two_turns_and_renders_unsupported_chips_and_feedback(
     assert app.session_state["history"][1]["query"] == "Explain John 3:16"
 
     # Verify unsupported citation chip rendered
-    assert any(
-        "Unsupported: 1" in m.value and "Romans 8:28" in m.value for m in app.markdown
-    )
+    assert any("Unsupported: 1" in m.value and "Romans 8:28" in m.value for m in app.markdown)
 
     # Click 👎 feedback button and verify JSONL line written to tmp_path
     down_buttons = [b for b in app.button if b.label == "👎"]
@@ -173,7 +167,9 @@ def test_history_holds_two_turns_and_renders_unsupported_chips_and_feedback(
 
     feedback_file = tmp_path / "feedback.jsonl"
     assert feedback_file.is_file()
-    lines = [line for line in feedback_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    lines = [
+        line for line in feedback_file.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
     assert len(lines) == 1
     record = json.loads(lines[0])
     assert record["query"] == "Explain John 3:16"
@@ -262,4 +258,3 @@ def test_feedback_to_eval_converts_only_down_entries(tmp_path: Path) -> None:
             feedback_file=feedback_file,
             out_file=tmp_path / "answer_cases.jsonl",
         )
-

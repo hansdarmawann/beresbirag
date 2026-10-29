@@ -18,6 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+import beresbirag
 from beresbirag.config import Settings, get_settings
 from beresbirag.llm.factory import (
     DEFAULT_MODELS,
@@ -100,7 +101,9 @@ def build_pipeline(
     )
 
 
-def _init_app_state(target_app: FastAPI, settings: Settings, *, build_shared_retriever: bool = True) -> None:
+def _init_app_state(
+    target_app: FastAPI, settings: Settings, *, build_shared_retriever: bool = True
+) -> None:
     configure_logging(level=settings.log_level, fmt=settings.log_format)
     valid_keys = _parse_api_keys(settings)
     if not valid_keys:
@@ -155,7 +158,7 @@ async def lifespan(target_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="Berean Standard Bible RAG API",
     description="Grounded Scripture retrieval and small-LLM QA service powered by LangChain and Qdrant.",
-    version="0.1.0",
+    version=beresbirag.__version__,
     lifespan=lifespan,
 )
 
@@ -166,11 +169,7 @@ def _parse_api_keys(settings: Settings) -> list[str]:
 
 def _allowed_model_pairs(settings: Settings) -> set[str]:
     if settings.allowed_models and settings.allowed_models.strip():
-        return {
-            item.strip().lower()
-            for item in settings.allowed_models.split(",")
-            if item.strip()
-        }
+        return {item.strip().lower() for item in settings.allowed_models.split(",") if item.strip()}
     pairs = {f"{prov}:{mod}".lower() for prov, mod in DEFAULT_MODELS.items()}
     if settings.llm_model and settings.llm_model.strip():
         pairs.add(f"{settings.llm_provider}:{settings.llm_model.strip()}".lower())
@@ -291,9 +290,7 @@ async def _provider_unavailable_handler(
 
 
 @app.exception_handler(CollectionConfigError)
-async def _collection_config_handler(
-    request: Request, exc: CollectionConfigError
-) -> JSONResponse:
+async def _collection_config_handler(request: Request, exc: CollectionConfigError) -> JSONResponse:
     return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 
@@ -341,9 +338,7 @@ class RetrieveRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    query: str = Field(
-        ..., min_length=1, description="Scripture reference, topic, or search query"
-    )
+    query: str = Field(..., min_length=1, description="Scripture reference, topic, or search query")
     top_k: int | None = Field(
         default=None, ge=1, le=20, description="Maximum number of chunks to return"
     )
@@ -354,18 +349,14 @@ class QueryRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    query: str = Field(
-        ..., min_length=1, description="Bible question or topic inquiry"
-    )
+    query: str = Field(..., min_length=1, description="Bible question or topic inquiry")
     top_k: int | None = Field(
         default=None, ge=1, le=20, description="Maximum context chunks to retrieve"
     )
     provider: Literal["openai", "anthropic", "ollama"] | None = Field(
         default=None, description="LLM provider: 'openai', 'anthropic', or 'ollama'"
     )
-    model: str | None = Field(
-        default=None, description="Specific model name override"
-    )
+    model: str | None = Field(default=None, description="Specific model name override")
     effort: Literal["minimal", "low", "medium", "high"] | None = Field(
         default=None, description="Reasoning effort override"
     )
@@ -397,9 +388,7 @@ def get_pipeline_factory(
         model_name: str | None = None,
         effort: Literal["minimal", "low", "medium", "high"] | None = None,
     ) -> BSBRAGPipeline:
-        resolved_provider, resolved_model = resolve_llm_target(
-            provider, model_name, settings
-        )
+        resolved_provider, resolved_model = resolve_llm_target(provider, model_name, settings)
         resolved_effort = effort or settings.llm_effort
         cache_key = (resolved_provider, resolved_model, resolved_effort)
         pipelines: dict[tuple[str, str, str], BSBRAGPipeline] = request.app.state.pipelines
@@ -410,9 +399,9 @@ def get_pipeline_factory(
                 cached = build_pipeline(
                     retriever=retriever,
                     settings=settings,
-                    provider=resolved_provider,  # type: ignore[arg-type]
+                    provider=resolved_provider,
                     model_name=resolved_model,
-                    effort=resolved_effort,  # type: ignore[arg-type]
+                    effort=resolved_effort,
                 )
                 pipelines[cache_key] = cached
             return cached
@@ -421,9 +410,7 @@ def get_pipeline_factory(
 
 
 def _extract_token_usage(pipeline: Any, response: RAGResponse) -> tuple[int | None, int | None]:
-    usage = getattr(response, "usage_metadata", None) or getattr(
-        pipeline, "usage_metadata", None
-    )
+    usage = getattr(response, "usage_metadata", None) or getattr(pipeline, "usage_metadata", None)
     if isinstance(usage, dict):
         return usage.get("input_tokens"), usage.get("output_tokens")
     return None, None
@@ -474,7 +461,10 @@ def health_endpoint(
 
 
 def _resolve_readiness_manager(request: Request, settings: Settings) -> Any:
-    if hasattr(request.app.state, "qdrant_manager") and request.app.state.qdrant_manager is not None:
+    if (
+        hasattr(request.app.state, "qdrant_manager")
+        and request.app.state.qdrant_manager is not None
+    ):
         return request.app.state.qdrant_manager
     override_retriever_fn = request.app.dependency_overrides.get(get_api_retriever)
     retriever = (
@@ -640,9 +630,7 @@ def query_endpoint(
     payload: QueryRequest,
     http_request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
-    pipeline_factory: Annotated[
-        Callable[..., BSBRAGPipeline], Depends(get_pipeline_factory)
-    ],
+    pipeline_factory: Annotated[Callable[..., BSBRAGPipeline], Depends(get_pipeline_factory)],
 ) -> RAGResponse | JSONResponse:
     """Answer a Bible inquiry with grounded context citations and verified small-LLM output."""
     _validate_query_length(payload.query, settings)
@@ -681,9 +669,7 @@ async def query_stream_endpoint(
     payload: QueryRequest,
     http_request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
-    pipeline_factory: Annotated[
-        Callable[..., BSBRAGPipeline], Depends(get_pipeline_factory)
-    ],
+    pipeline_factory: Annotated[Callable[..., BSBRAGPipeline], Depends(get_pipeline_factory)],
 ) -> Response:
     """Stream grounded RAG execution via Server-Sent Events (meta -> token -> done)."""
     _validate_query_length(payload.query, settings)
@@ -701,9 +687,7 @@ async def query_stream_endpoint(
             model_name=payload.model,
             effort=payload.effort,
         )
-        prepared = await asyncio.to_thread(
-            pipeline.prepare, payload.query, payload.top_k
-        )
+        prepared = await asyncio.to_thread(pipeline.prepare, payload.query, payload.top_k)
     except HTTPException:
         sem.release()
         raise

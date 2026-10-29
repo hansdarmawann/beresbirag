@@ -106,7 +106,10 @@ def test_synthetic_outline_parsing_and_breadcrumbs(tmp_path: Path) -> None:
 
     crumb = index.get_outline_breadcrumbs("GEN", 1, 1)
     assert crumb is not None
-    assert crumb == "1. God and the World > a. The Creation > i. The Six Days of Creation > 1. The First Day: Light"
+    assert (
+        crumb
+        == "1. God and the World > a. The Creation > i. The Six Days of Creation > 1. The First Day: Light"
+    )
 
     assert len(chunks) == 1
     chunk = chunks[0]
@@ -268,7 +271,9 @@ def test_sliding_window_and_unique_ids(scripture_chunks: list[ChunkDocument]) ->
     ids = [c.chunk_id for c in scripture_chunks]
     assert len(ids) == len(set(ids))
     assert all(len(c.metadata.verse_refs) <= 10 for c in scripture_chunks)
-    small = list(iter_usj_scripture_chunks(book_filter={"PHM"}, max_verses_per_chunk=4, verse_overlap=1))
+    small = list(
+        iter_usj_scripture_chunks(book_filter={"PHM"}, max_verses_per_chunk=4, verse_overlap=1)
+    )
     assert all(len(c.metadata.verse_refs) <= 4 for c in small)
     assert any(c.chunk_id.endswith(":1") for c in small)
 
@@ -287,5 +292,6 @@ def test_john_prologue(scripture_chunks: list[ChunkDocument]) -> None:
 
 def test_invalid_window_arguments() -> None:
     with pytest.raises(ValueError):
-        list(iter_usj_scripture_chunks(book_filter={"PHM"}, max_verses_per_chunk=3, verse_overlap=3))
-
+        list(
+            iter_usj_scripture_chunks(book_filter={"PHM"}, max_verses_per_chunk=3, verse_overlap=3)
+        )

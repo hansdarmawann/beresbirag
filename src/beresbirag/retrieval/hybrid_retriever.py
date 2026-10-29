@@ -12,6 +12,7 @@ from qdrant_client import models
 
 from beresbirag.config import Settings, get_settings
 from beresbirag.models.schemas import QueryIntent, RetrievalResult, SourceType, VerseRange
+from beresbirag.retrieval.formatting import format_context_blocks
 from beresbirag.retrieval.query_router import ALL_SOURCES, INTENT_SOURCES, QueryPlan, route_query
 from beresbirag.retrieval.reference_parser import MAX_EXPANDED_REFS
 from beresbirag.retrieval.reranker import PassageReranker, deduplicate_results
@@ -122,7 +123,9 @@ class BSBHybridRetriever:
     # ---------------------------------------------------------------- retrieval
     def fetch_exact_matches(self, plan: QueryPlan) -> list[RetrievalResult]:
         """Deterministically scroll Qdrant for chunks whose payload matches the plan exactly."""
-        if not (plan.has_exact_targets or (QueryIntent.OUTLINE in plan.intents and plan.book_codes)):
+        if not (
+            plan.has_exact_targets or (QueryIntent.OUTLINE in plan.intents and plan.book_codes)
+        ):
             return []
         exact: list[RetrievalResult] = []
         for flt in self._exact_filters(plan):
@@ -195,13 +198,7 @@ class BSBHybridRetriever:
     @staticmethod
     def format_context_for_llm(results: list[RetrievalResult]) -> str:
         """Format results as numbered, citation-anchored context blocks for small LLMs."""
-        blocks: list[str] = []
-        for idx, result in enumerate(results, start=1):
-            meta = result.chunk.metadata
-            reference = meta.canonical_ref or result.chunk.chunk_id
-            header = f"=== SOURCE [{idx}] | Reference: {reference} | Type: {meta.source_type.value} ==="
-            blocks.append(f"{header}\n{result.chunk.text.strip()}")
-        return "\n\n".join(blocks)
+        return format_context_blocks(results, empty_message=None)
 
     def as_langchain_retriever(
         self,
@@ -243,4 +240,3 @@ class BSBLangChainRetriever(BaseRetriever):
             )
             documents.append(doc)
         return documents
-

@@ -28,7 +28,11 @@ def check_avx2() -> CheckResult:
     try:
         system = platform.system()
         if system == "Windows":
-            supported = bool(ctypes.windll.kernel32.IsProcessorFeaturePresent(40))
+            # ctypes exposes windll only on Windows, so resolve it at runtime.
+            windll = getattr(ctypes, "windll", None)
+            if windll is None:
+                return CheckResult("AVX2", "warn", "unknown: ctypes.windll is unavailable")
+            supported = bool(windll.kernel32.IsProcessorFeaturePresent(40))
         elif system == "Linux":
             supported = "avx2" in Path("/proc/cpuinfo").read_text().split()
         else:
@@ -74,7 +78,11 @@ def check_model_cache(settings: Settings) -> list[CheckResult]:
     ):
         try:
             description = cls._get_model_description(model)
-            path = cls.download_model(description, settings.model_cache_dir, local_files_only=True)
+            path = cls.download_model(
+                description,  # type: ignore[arg-type] # FastEmbed model description union
+                settings.model_cache_dir,
+                local_files_only=True,
+            )
             required = [description.model_file, *description.additional_files]
             if not all((path / filename).is_file() for filename in required if filename):
                 raise FileNotFoundError(f"incomplete cache for {model}")

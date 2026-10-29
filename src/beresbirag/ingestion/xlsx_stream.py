@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator
+from collections.abc import Generator
 from pathlib import Path
 from urllib.parse import quote
 from xml.etree import ElementTree as ET
@@ -17,7 +17,7 @@ _REF = re.compile(r"^(.+?)\s+(\d+):(\d+)(?:\s*[-–—]\s*(\d+))?$")
 
 def iter_xlsx_rows(
     xlsx_path: str | Path, max_rows: int | None = None
-) -> Iterator[tuple[int, dict[str, str]]]:
+) -> Generator[tuple[int, dict[str, str]], None, None]:
     """Yield numbered rows from sheet1; max_rows counts physical rows, including headers.
 
     The shared-string lookup remains resident, but completed XML elements are

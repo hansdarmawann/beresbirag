@@ -91,22 +91,16 @@ def _render_retrieval_table(
         meta = res.chunk.metadata
         ref = meta.canonical_ref or res.chunk.chunk_id
         src_type = (
-            meta.source_type.value
-            if hasattr(meta.source_type, "value")
-            else str(meta.source_type)
+            meta.source_type.value if hasattr(meta.source_type, "value") else str(meta.source_type)
         )
         score_val = (
-            f"{res.rerank_score:.3f}"
-            if res.rerank_score is not None
-            else f"{res.score:.3f}"
+            f"{res.rerank_score:.3f}" if res.rerank_score is not None else f"{res.score:.3f}"
         )
         heading = meta.section_heading or meta.outline_path or "-"
         preview = res.chunk.text.strip().replace("\n", " ")
         if len(preview) > 120:
             preview = preview[:117] + "..."
-        table.add_row(
-            str(res.rank), ref, src_type, score_val, heading, preview
-        )
+        table.add_row(str(res.rank), ref, src_type, score_val, heading, preview)
 
     console.print(table)
 
@@ -117,7 +111,12 @@ def retrieve_command(
         ..., help="The Bible passage reference, topic, or search query to retrieve"
     ),
     top_k: int | None = typer.Option(
-        None, "--top-k", "-k", min=1, max=50, help="Number of top chunks to retrieve (default: profile)"
+        None,
+        "--top-k",
+        "-k",
+        min=1,
+        max=50,
+        help="Number of top chunks to retrieve (default: profile)",
     ),
 ) -> None:
     """Retrieve ranked Berean Standard Bible chunks without invoking an LLM."""
@@ -126,15 +125,13 @@ def retrieve_command(
 
     try:
         with console.status("[bold cyan]Searching Berean Standard Bible corpus..."):
-            plan, results = retriever.retrieve(question, top_k=top_k if top_k is not None else settings.retrieval_top_k)
+            plan, results = retriever.retrieve(
+                question, top_k=top_k if top_k is not None else settings.retrieval_top_k
+            )
     except CollectionConfigError as exc:
         raise _exit_with_config_error(exc) from exc
 
-    intent_label = (
-        getattr(plan, "intent", None)
-        if plan is not None
-        else "hybrid_general"
-    )
+    intent_label = getattr(plan, "intent", None) if plan is not None else "hybrid_general"
     console.print(
         Panel(
             f"[bold]Query:[/bold] {question}\n"
@@ -154,9 +151,7 @@ def retrieve_command(
 
 @app.command("query")
 def query_command(
-    question: str = typer.Argument(
-        ..., help="The Bible question or passage inquiry to answer"
-    ),
+    question: str = typer.Argument(..., help="The Bible question or passage inquiry to answer"),
     provider: str | None = typer.Option(
         None,
         "--provider",
@@ -176,7 +171,12 @@ def query_command(
         help="Reasoning effort: 'minimal', 'low', 'medium', 'high' (default: LLM_EFFORT)",
     ),
     top_k: int | None = typer.Option(
-        None, "--top-k", "-k", min=1, max=50, help="Number of context chunks to retrieve (default: profile)"
+        None,
+        "--top-k",
+        "-k",
+        min=1,
+        max=50,
+        help="Number of context chunks to retrieve (default: profile)",
     ),
 ) -> None:
     """Answer questions grounded strictly in the Berean Standard Bible using LCEL."""
@@ -231,9 +231,7 @@ def query_command(
 
         for idx, cit in enumerate(response.citations, start=1):
             src_val = (
-                cit.source_type.value
-                if hasattr(cit.source_type, "value")
-                else str(cit.source_type)
+                cit.source_type.value if hasattr(cit.source_type, "value") else str(cit.source_type)
             )
             cit_table.add_row(
                 str(idx),
@@ -262,7 +260,9 @@ def doctor_command() -> None:
 @app.command("ui")
 def ui_command(
     port: int = typer.Option(8501, "--port", "-p", help="Port to run Streamlit on."),
-    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host address to bind Streamlit server."),
+    host: str = typer.Option(
+        "127.0.0.1", "--host", "-h", help="Host address to bind Streamlit server."
+    ),
 ) -> None:
     """Launch the BSB RAG Streamlit user interface."""
     import subprocess

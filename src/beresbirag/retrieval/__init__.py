@@ -1,5 +1,6 @@
 """Deterministic query routing, hybrid retrieval, and reranking for the BSB RAG pipeline."""
 
+from beresbirag.retrieval.formatting import format_context_blocks
 from beresbirag.retrieval.hybrid_retriever import (
     BOOK_SCOPED_SOURCES,
     BSBHybridRetriever,
@@ -37,7 +38,7 @@ __all__ = [
     "extract_concordance_word",
     "extract_topic_keyword",
     "find_book_mentions",
+    "format_context_blocks",
     "route_query",
     "verse_count",
 ]
-

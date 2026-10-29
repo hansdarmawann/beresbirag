@@ -182,9 +182,7 @@ def main() -> None:
 
         # Model selection
         installed_ollama = (
-            fetch_installed_ollama_models(settings)
-            if selected_provider == "ollama"
-            else []
+            fetch_installed_ollama_models(settings) if selected_provider == "ollama" else []
         )
         avail_models = model_options(selected_provider, settings, installed_ollama)
 
@@ -316,7 +314,7 @@ def main() -> None:
                         "generation_ms": 0.0,
                         "total_ms": round(retrieval_ms, 2),
                     }
-                    turn_entry = {
+                    turn_entry: dict[str, Any] = {
                         "mode": "retrieve",
                         "query": user_query,
                         "answer": "",
@@ -361,7 +359,7 @@ def main() -> None:
                     else:
                         gen_start = time.perf_counter()
                         stream_gen = pipeline.stream(prepared)
-                        answer_text = st.write_stream(stream_gen)
+                        answer_text = str(st.write_stream(stream_gen) or "")
                         gen_ms = (time.perf_counter() - gen_start) * 1000
 
                     response = pipeline.finalize(prepared, answer_text)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Literal
+from typing import Literal, cast
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -55,16 +55,14 @@ def is_reasoning_model(model_name: str) -> bool:
 
 
 def resolve_llm_target(
-    provider: str | None, model_name: str | None, settings: Settings
-) -> tuple[str, str]:
+    provider: ProviderType | str | None, model_name: str | None, settings: Settings
+) -> tuple[ProviderType, str]:
     """Return (provider, model). Explicit model wins; otherwise LLM_MODEL only when
     provider == LLM_PROVIDER; otherwise DEFAULT_MODELS[provider]."""
     active_provider = (provider or settings.llm_provider).lower()
     if active_provider not in DEFAULT_MODELS:
         expected = " or ".join(f"'{name}'" for name in DEFAULT_MODELS)
-        raise ValueError(
-            f"Unsupported LLM provider: {active_provider}. Expected {expected}."
-        )
+        raise ValueError(f"Unsupported LLM provider: {active_provider}. Expected {expected}.")
 
     settings_model = (settings.llm_model or "").strip()
     if model_name and model_name.strip():
@@ -80,7 +78,7 @@ def resolve_llm_target(
             f"Choose a matching provider, or a {active_provider} model "
             f"(default: {DEFAULT_MODELS[active_provider]})."
         )
-    return active_provider, active_model
+    return cast(ProviderType, active_provider), active_model
 
 
 def _resolve_api_key(provider: str, api_key: str | None, settings: Settings) -> str:
@@ -119,22 +117,26 @@ def create_chat_model(
         MissingAPIKeyError: No API key found for the provider.
     """
     resolved_settings = settings or get_settings()
-    if resolved_settings.offline_mode and (provider or resolved_settings.llm_provider).lower() in {"openai", "anthropic"}:
+    if resolved_settings.offline_mode and (provider or resolved_settings.llm_provider).lower() in {
+        "openai",
+        "anthropic",
+    }:
         raise ProviderUnavailableError("offline mode: use --provider ollama")
-    active_provider, active_model = resolve_llm_target(
-        provider, model_name, resolved_settings
-    )
+    active_provider, active_model = resolve_llm_target(provider, model_name, resolved_settings)
     active_effort = effort or resolved_settings.llm_effort
-    active_temp = (
-        temperature if temperature is not None else resolved_settings.llm_temperature
-    )
+    active_temp = temperature if temperature is not None else resolved_settings.llm_temperature
     if active_provider == "ollama":
         from langchain_ollama import ChatOllama
 
         return ChatOllama(
-            model=active_model, base_url=resolved_settings.ollama_base_url, temperature=0.0,
-            num_ctx=resolved_settings.llm_num_ctx, num_predict=resolved_settings.llm_num_predict,
-            num_thread=resolved_settings.llm_num_thread, keep_alive="30m", reasoning=False,
+            model=active_model,
+            base_url=resolved_settings.ollama_base_url,
+            temperature=0.0,
+            num_ctx=resolved_settings.llm_num_ctx,
+            num_predict=resolved_settings.llm_num_predict,
+            num_thread=resolved_settings.llm_num_thread,
+            keep_alive="30m",
+            reasoning=False,
         )
     resolved_key = _resolve_api_key(active_provider, api_key, resolved_settings)
 

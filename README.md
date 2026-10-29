@@ -1,8 +1,8 @@
 # beresbirag — Berean Standard Bible (BSB) Hybrid RAG Pipeline
 
-**`beresbirag`** is a production-grade, multi-corpus Retrieval-Augmented Generation (RAG) system built with **Python 3.11+**, **LangChain (LCEL)**, and **Qdrant Hybrid Search (Dense + Sparse BM25 Reciprocal Rank Fusion)** over the complete public-domain **Berean Standard Bible (BSB)** ecosystem.
+**`beresbirag`** is a production-oriented, multi-corpus Retrieval-Augmented Generation (RAG) system built with **Python 3.11+**, **LangChain (LCEL)**, and **Qdrant Hybrid Search (Dense + Sparse BM25 Reciprocal Rank Fusion)** over the complete public-domain **Berean Standard Bible (BSB)** ecosystem.
 
-It is specifically engineered so **small, fast, minimal-effort LLMs** (OpenAI `gpt-4o-mini` / `gpt-5-nano` and Anthropic `claude-haiku-5-5` / `claude-haiku-4-5`) achieve high-precision, zero-hallucination biblical grounding without expensive reasoning tokens.
+It is specifically engineered so **small, fast, minimal-effort LLMs** (OpenAI `gpt-4o-mini` / `gpt-5-nano`, Anthropic `claude-haiku-5-5` / `claude-haiku-4-5`, and local Ollama `qwen2.5:1.5b`) achieve high-precision, grounded answers with citation validation without expensive reasoning tokens.
 
 ---
 
@@ -18,12 +18,13 @@ flowchart LR
     end
 
     subgraph Ingestion["Unified Ingestion Pipeline"]
-        PIPE["IngestionPipeline\n(Pericope Windowing + Breadcrumb Alignment + Streaming XML)"]
+        PIPE["IngestionPipeline\n(Pericope Windowing + Breadcrumbs + Streaming XML)"]
+        META["Index Metadata\n({collection}__meta Verification)"]
     end
 
     subgraph VectorDB["Qdrant Hybrid Vector Store (bsb_rag)"]
         DENSE["Dense Embeddings\n(FastEmbed BGE-Small / OpenAI)"]
-        SPARSE["Sparse BM25 Vectors\n(FastEmbed Qdrant/bm25)"]
+        SPARSE["Sparse BM25 Vectors\n(FastEmbed Qdrant/bm25 + IDF)"]
         PAYLOAD["Indexed Metadata Payloads\n(source_type, book_code, verse_refs, topic, concordance_word)"]
     end
 
@@ -34,18 +35,22 @@ flowchart LR
         RERANK["PassageReranker\n(FlashRank Cross-Encoder + Exact-Match Boost)"]
     end
 
-    subgraph App["Minimal-Effort LCEL RAG & Interfaces"]
-        LCEL["BSBRAGPipeline (LCEL)\nOpenAI & Anthropic Minimal-Effort Factory"]
+    subgraph App["Minimal-Effort LCEL RAG, Validation & Interfaces"]
+        LCEL["BSBRAGPipeline (LCEL)\nOpenAI, Anthropic & Ollama Factory"]
+        CITE["Citation Validation\n(annotate / strict policy)"]
         CLI["Typer + Rich CLI\n(beresbirag retrieve / query)"]
-        API["FastAPI Service\n(/health, /retrieve, /query)"]
+        API["FastAPI Service\n(/livez, /readyz, /retrieve, /query, /query/stream)"]
+        UI["Streamlit UI\n(beresbirag ui / StreamlitApp)"]
     end
 
     USJ & PDF & TOP & CON --> PIPE
+    PIPE --> META
     PIPE --> DENSE & SPARSE & PAYLOAD
     ROUTER --> EXACT & HYBRID
     DENSE & SPARSE & PAYLOAD --> EXACT & HYBRID
     EXACT & HYBRID --> RERANK
-    RERANK --> LCEL --> CLI & API
+    RERANK --> LCEL --> CITE
+    CITE --> CLI & API & UI
 ```
 
 ### Multi-Corpus Chunking Strategy
@@ -67,7 +72,7 @@ conda run -n beresbirag pip install -e ".[dev]"
 
 # 2. Configure environment variables
 Copy-Item .env.example .env
-# Edit .env to set OPENAI_API_KEY and/or ANTHROPIC_API_KEY (optional for local retrieval)
+# Edit .env to set OPENAI_API_KEY, ANTHROPIC_API_KEY, or configure local Ollama
 ```
 
 ---
@@ -87,9 +92,9 @@ conda run -n beresbirag python ./scripts/ingest_all.py --recreate --books GEN,EX
 conda run -n beresbirag python ./scripts/ingest_all.py --recreate
 ```
 
-### Upgrading existing collections
+### Upgrading Existing Collections
 
-Collections created before the BM25 IDF fix were built with `modifier=None` on the sparse vector, so BM25 scores ignore inverse document frequency. Queries against such a collection (or one whose dense vector size no longer matches the active embedding model) now fail fast with a `CollectionConfigError`. Rebuild the collection once:
+Collections created before the BM25 IDF fix were built with `modifier=None` on the sparse vector, so BM25 scores ignore inverse document frequency. Queries against such a collection (or one whose dense vector size no longer matches the active embedding model) fail fast with a `CollectionConfigError`. Rebuild the collection once:
 
 ```powershell
 conda run -n beresbirag python ./scripts/ingest_all.py --recreate
@@ -110,53 +115,97 @@ conda run -n beresbirag beresbirag query "What does Genesis 1:1-5 teach about li
 
 # Ask a grounded question with Anthropic (minimal effort)
 conda run -n beresbirag beresbirag query "How does the BSB Book Outline structure the Gospel of John?" --provider anthropic --model claude-haiku-5-5 --effort minimal
+
+# Ask a question offline with Ollama (low-resource profile)
+conda run -n beresbirag beresbirag query "How many times does grace occur in the concordance?" --provider ollama --model qwen2.5:1.5b --effort minimal
 ```
 
 ### FastAPI Endpoints (`src/beresbirag/api.py`)
+
+#### PowerShell
 
 ```powershell
 # Start the FastAPI server locally
 conda run -n beresbirag uvicorn beresbirag.api:app --host 0.0.0.0 --port 8000
 
 # Health check
+Invoke-RestMethod -Uri http://localhost:8000/health
+
+# Retrieval-only endpoint (no LLM key required)
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/retrieve `
+  -ContentType "application/json" `
+  -Body (@{query = "John 1:1-5"; top_k = 5} | ConvertTo-Json)
+
+# Full grounded RAG query endpoint
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/query `
+  -ContentType "application/json" `
+  -Body (@{
+    query = "What is the significance of 666 in the BSB Topical Index and Revelation 13:18?"
+    provider = "openai"
+    effort = "minimal"
+    top_k = 6
+  } | ConvertTo-Json)
+```
+
+#### Bash (`curl`)
+
+```bash
+# Health check
 curl http://localhost:8000/health
 
 # Retrieval-only endpoint (no LLM key required)
-curl -X POST http://localhost:8000/retrieve ^
-  -H "Content-Type: application/json" ^
-  -d "{\"query\": \"John 1:1-5\", \"top_k\": 5}"
+curl -X POST http://localhost:8000/retrieve \
+  -H "Content-Type: application/json" \
+  -d '{"query": "John 1:1-5", "top_k": 5}'
 
 # Full grounded RAG query endpoint
-curl -X POST http://localhost:8000/query ^
-  -H "Content-Type: application/json" ^
-  -d "{\"query\": \"What is the significance of 666 in the BSB Topical Index and Revelation 13:18?\", \"provider\": \"openai\", \"effort\": \"minimal\", \"top_k\": 6}"
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is the significance of 666 in the BSB Topical Index and Revelation 13:18?",
+    "provider": "openai",
+    "effort": "minimal",
+    "top_k": 6
+  }'
 ```
 
 ---
 
-## 5. Retrieval Evaluation Benchmark Suite
+## 5. Streamlit Web UI
 
-Run the 15-query multi-corpus benchmark suite (`Recall@1`, `Recall@5`, `MRR`) across Exact Scripture, Footnotes/Cross-References, Book Outlines, Topical Index, and Concordance queries:
+The interactive Streamlit interface provides grounded scripture search and QA with two execution modes:
 
-```powershell
-conda run -n beresbirag python ./scripts/evaluate_retrieval.py
-```
+- **Install**:
+  ```powershell
+  conda run -n beresbirag pip install -e ".[ui]"
+  # Or install with offline Ollama dependencies:
+  conda run -n beresbirag pip install -e ".[ui,offline]"
+  ```
+- **Run**:
+  ```powershell
+  conda run -n beresbirag beresbirag ui
+  # Or specify custom port and host:
+  conda run -n beresbirag beresbirag ui --port 8501 --host 127.0.0.1
+  ```
+- **Modes**:
+  - **Retrieve only (no LLM)**: Fast, zero-LLM search returning ranked chunks, canonical references, and intent classification.
+  - **Answer with LLM**: Full RAG pipeline streaming grounded answers with citation validation, deterministic fast-path evaluation for exact citations and concordance counts, and context compression.
+- **Provider-safe model picker**: Dynamically lists valid models for OpenAI, Anthropic, or Ollama, preventing invalid pairings.
 
 ---
 
 ## 6. Multi-LLM Parallel Git Worktree Workflow & Git Hygiene
 
-This repository uses isolated Git worktrees under `./.worktrees/` managed by `./scripts/manage_worktrees.ps1` with strict single-contributor authorship (`Hans Darmawan <work.hansdarmawan001@gmail.com>`) enforced by `.githooks/`:
+This repository supports isolated Git worktrees under `./.worktrees/` managed by `./scripts/manage_worktrees.ps1` with strict single-contributor authorship (`Hans Darmawan <work.hansdarmawan001@gmail.com>`) enforced by `.githooks/`:
 
 ```powershell
 # List active worktrees
 powershell -ExecutionPolicy Bypass -File ./scripts/manage_worktrees.ps1 -Action list
 
-# Merge Wave 1 and Wave 2 worktrees into main
-powershell -ExecutionPolicy Bypass -File ./scripts/manage_worktrees.ps1 -Action merge-wave1
-powershell -ExecutionPolicy Bypass -File ./scripts/manage_worktrees.ps1 -Action merge-wave2
+# Initialize worktrees for a specific wave (e.g. Wave 6) with BSB_DATA_DIR=../..
+powershell -ExecutionPolicy Bypass -File ./scripts/manage_worktrees.ps1 -Action init -Wave 6
 
-# Clean up worktrees after integration
+# Clean up worktrees whose branches are merged into origin/main
 powershell -ExecutionPolicy Bypass -File ./scripts/manage_worktrees.ps1 -Action clean
 ```
 
@@ -164,42 +213,25 @@ powershell -ExecutionPolicy Bypass -File ./scripts/manage_worktrees.ps1 -Action 
 
 ```powershell
 conda run -n beresbirag ruff check ./src ./scripts ./tests
+conda run -n beresbirag ruff format --check ./src ./scripts ./tests
+conda run -n beresbirag mypy ./src
 conda run -n beresbirag pytest -v
 ```
 
-## Offline mode
+---
 
-Use Ollama and native Qdrant with `RESOURCE_PROFILE=low` and `OFFLINE_MODE=true`
-for local Bible search and answers. The low profile reduces context, retrieval,
-and CPU thread budgets and enables deterministic passage/count answers.
-See [Offline setup and model transfer](docs/OFFLINE.md) for build/target steps,
-the 4 GB RAM budget, diagnostics, and limitations.
+## 7. Documentation
+
+Detailed guides and specifications are located in the [`docs/`](docs/) directory:
+
+- [Offline Setup and Low-Resource Profile](docs/OFFLINE.md) — Local Ollama setup, model prefetching, 4 GB RAM profile, and diagnostics.
+- [Evaluation Benchmark and Verification](docs/EVALUATION.md) — 150-case benchmark evaluation across retrieval accuracy, answer fidelity, and citation validity.
+- [Operations Guide](docs/OPERATIONS.md) — Health/readiness probes, API authentication, rate limiting, SSE streaming, Docker deployment, and observability.
 
 ---
 
-## 7. Streamlit UI
+## 8. License
 
-The interactive Streamlit interface provides grounded scripture search and QA with two execution modes:
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
-- **Install**:
-  ``powershell
-  conda run -n beresbirag pip install -e ".[ui]"
-  # Or install with offline Ollama dependencies:
-  conda run -n beresbirag pip install -e ".[ui,offline]"
-  ``
-- **Run**:
-  ``powershell
-  conda run -n beresbirag beresbirag ui
-  # Or specify custom port and host:
-  conda run -n beresbirag beresbirag ui --port 8501 --host 127.0.0.1
-  ``
-- **Modes**:
-  - **Retrieve only (no LLM)**: Fast, zero-LLM search returning ranked chunks, canonical references, and intent classification. Defaults automatically when RESOURCE_PROFILE=low.
-  - **Answer with LLM**: Full RAG pipeline streaming grounded answers with citations, deterministic fast-path evaluation for exact citations and concordance counts, and context compression.
-- **Provider-safe model picker**: The UI model selector dynamically populates valid models for OpenAI, Anthropic, or Ollama, ensuring invalid provider/model pairings are prevented.
-
----
-
-## 8. Operations
-
-Production operational features—including shared FastAPI lifespan resources, `/livez` and `/readyz` health/readiness probes, `X-API-Key` authentication, token-bucket rate limiting, `/query/stream` Server-Sent Events (SSE), structured JSON logging, constant-memory streaming ingestion with `{collection}__meta` index validation, `requirements.lock` dependency locking, corpus SHA-256 verification (`scripts/verify_corpus.py`), and the UI feedback-to-evaluation loop (`scripts/feedback_to_eval.py`)—are documented in [Operations Guide](docs/OPERATIONS.md).
+Source raw data notice: See [NOTICE](NOTICE). The raw Berean Standard Bible files are not distributed in this repository.

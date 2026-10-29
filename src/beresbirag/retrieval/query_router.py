@@ -71,7 +71,9 @@ _TOPIC_PATTERNS: tuple[re.Pattern[str], ...] = (
         r"\btopic(?:al\s+index)?(?:\s+(?:entry|entries|list|references?))?\s*(?:of|for|on|about|:)\s+(?P<k>.+)",
         re.IGNORECASE,
     ),
-    re.compile(r"\bverses\s+(?:are\s+)?(?:about|on|regarding|concerning)\s+(?P<k>.+)", re.IGNORECASE),
+    re.compile(
+        r"\bverses\s+(?:are\s+)?(?:about|on|regarding|concerning)\s+(?P<k>.+)", re.IGNORECASE
+    ),
     re.compile(r"\b(?:about|regarding|concerning)\s+(?P<k>.+)", re.IGNORECASE),
     re.compile(r"(?:^|\bthe\s+)(?P<k>[A-Za-z][\w' -]*?)\s+topic\b", re.IGNORECASE),
     # "the significance of 666 in the BSB Topical Index"
@@ -109,7 +111,9 @@ _TOPIC_TRAILING_RE = re.compile(
     re.IGNORECASE,
 )
 _TOPIC_LEADING_RE = re.compile(r"^(?:the|a|an)\s+", re.IGNORECASE)
-_TOPIC_DANGLING_RE = re.compile(r"\s+(?:in|from|of|on|at|for|and|or|to|within|with|by)$", re.IGNORECASE)
+_TOPIC_DANGLING_RE = re.compile(
+    r"\s+(?:in|from|of|on|at|for|and|or|to|within|with|by)$", re.IGNORECASE
+)
 _BOOK_CONTEXT = (
     r"\s+(?:in|from|within)\s+(?:the\s+)?(?:(?:book|gospel|letter|epistle)s?\s+(?:of\s+)?)?"
 )

@@ -73,9 +73,7 @@ def test_streaming_ingestion_buffers_at_most_batch_size(show_progress: bool) -> 
     manager = _memory_manager()
     orig_upsert = manager.upsert_chunks
 
-    def instrumented_upsert(
-        chunks: Iterable[ChunkDocument], batch_size: int = 64
-    ) -> int:
+    def instrumented_upsert(chunks: Iterable[ChunkDocument], batch_size: int = 64) -> int:
         nonlocal upserted_count, max_in_flight
         batch_list = list(chunks)
         in_flight = yielded_count - upserted_count
@@ -185,4 +183,3 @@ def test_verify_corpus_exits_1_on_sha256_mismatch(tmp_path: Path) -> None:
     )
     assert result.exit_code == 1
     assert "mismatch" in result.output.lower()
-

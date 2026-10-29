@@ -105,4 +105,3 @@ def configure_logging(
     pkg_logger.handlers.clear()
     pkg_logger.addHandler(handler)
     pkg_logger.propagate = True
-

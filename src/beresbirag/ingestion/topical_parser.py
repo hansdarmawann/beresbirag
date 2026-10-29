@@ -26,7 +26,9 @@ def _topic_chunks(
         ]
         if additional:
             lines.append("Additional References: " + "; ".join(additional))
-        lines.append("All Verse References: " + "; ".join(dict.fromkeys(selected_refs + additional)))
+        lines.append(
+            "All Verse References: " + "; ".join(dict.fromkeys(selected_refs + additional))
+        )
         chunk_id = f"topical:{_slug(topic)}:{part_idx}"
         canonical = f"Topical Index: {topic}"
         if parts > 1:
@@ -56,7 +58,9 @@ def iter_topical_chunks(
         raise ValueError("Chunk size and maximum chunks must be positive")
     if max_topics is not None and max_topics <= 0:
         return
-    path = resolve_data_file(xlsx_path) if xlsx_path is not None else get_settings().topical_xlsx_file
+    path = (
+        resolve_data_file(xlsx_path) if xlsx_path is not None else get_settings().topical_xlsx_file
+    )
     topic = ""
     passages: list[tuple[str, str]] = []
     refs: list[str] = []
@@ -66,7 +70,9 @@ def iter_topical_chunks(
         for _, row in rows:
             if row.get("B") == "Top" and row.get("C", "").strip():
                 if topic:
-                    yield from _topic_chunks(topic, passages, refs, total, max_full_verses_per_chunk)
+                    yield from _topic_chunks(
+                        topic, passages, refs, total, max_full_verses_per_chunk
+                    )
                     completed += 1
                     if max_topics is not None and completed >= max_topics:
                         return

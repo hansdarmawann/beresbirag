@@ -41,9 +41,13 @@ class OutlineNode:
     breadcrumb: str = ""
 
     def contains(self, chapter: int, verse: int) -> bool:
-        return (self.start_chapter, self.start_verse) <= (chapter, verse) <= (
-            self.end_chapter,
-            self.end_verse,
+        return (
+            (self.start_chapter, self.start_verse)
+            <= (chapter, verse)
+            <= (
+                self.end_chapter,
+                self.end_verse,
+            )
         )
 
     def contains_node(self, other: OutlineNode) -> bool:
@@ -163,9 +167,7 @@ class BookOutlineIndex:
     # ------------------------------------------------------------------ parsing
     @classmethod
     def from_pdf(cls, pdf_path: str | Path | None = None) -> BookOutlineIndex:
-        path = (
-            get_settings().outlines_pdf_file if pdf_path is None else resolve_data_file(pdf_path)
-        )
+        path = get_settings().outlines_pdf_file if pdf_path is None else resolve_data_file(pdf_path)
         with fitz.open(str(path)) as doc:
             lines: list[str] = []
             for page_idx in range(FIRST_OUTLINE_PAGE_INDEX, len(doc)):
@@ -283,13 +285,16 @@ class BookOutlineIndex:
                 continue
             book = get_book_by_code(code)
             first, last = nodes[0], max(nodes, key=lambda n: (n.end_chapter, n.end_verse))
-            overview_range = (
-                f"{first.start_chapter}:{first.start_verse}\u2013{last.end_chapter}:{last.end_verse}"
-            )
+            overview_range = f"{first.start_chapter}:{first.start_verse}\u2013{last.end_chapter}:{last.end_verse}"
             chunks.append(
                 self._make_chunk(
-                    book, f"outline:{code}:overview", "Complete Outline", overview_range,
-                    nodes, first, last,
+                    book,
+                    f"outline:{code}:overview",
+                    "Complete Outline",
+                    overview_range,
+                    nodes,
+                    first,
+                    last,
                 )
             )
             if len(nodes) > LARGE_BOOK_NODE_THRESHOLD:
@@ -297,8 +302,13 @@ class BookOutlineIndex:
                     head = group[0]
                     chunks.append(
                         self._make_chunk(
-                            book, f"outline:{code}:sec:{idx}", head.label,
-                            head.raw_range, group, head, head,
+                            book,
+                            f"outline:{code}:sec:{idx}",
+                            head.label,
+                            head.raw_range,
+                            group,
+                            head,
+                            head,
                         )
                     )
         return chunks

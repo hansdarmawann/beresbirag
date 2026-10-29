@@ -37,4 +37,3 @@ __all__ = [
     "parse_usj_book",
     "parse_verse_range",
 ]
-

@@ -171,14 +171,14 @@ def test_e2e_rag_pipeline_across_intents(
     )
 
     # 1. Exact Scripture & Footnote query
-    resp_scripture = rag.ask("What does Genesis 1:1-3 say and what footnote is on verse 3?", top_k=4)
+    resp_scripture = rag.ask(
+        "What does Genesis 1:1-3 say and what footnote is on verse 3?", top_k=4
+    )
     assert resp_scripture.intent == QueryIntent.EXACT_PASSAGE
     assert resp_scripture.citations
     assert resp_scripture.citations[0].source_type == SourceType.SCRIPTURE
     assert "Genesis 1:1" in resp_scripture.answer
-    assert any(
-        "2 Corinthians 4:6" in r.chunk.text for r in resp_scripture.retrieved_chunks
-    )
+    assert any("2 Corinthians 4:6" in r.chunk.text for r in resp_scripture.retrieved_chunks)
 
     # 2. Book Outline query
     resp_outline = rag.ask("What is the Genesis outline?", top_k=4)
@@ -197,4 +197,3 @@ def test_e2e_rag_pipeline_across_intents(
     resp_conc = rag.ask("Occurrences of 12 in the concordance", top_k=4)
     assert resp_conc.intent == QueryIntent.CONCORDANCE
     assert any(c.source_type == SourceType.CONCORDANCE for c in resp_conc.citations)
-

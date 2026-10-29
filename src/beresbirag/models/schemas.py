@@ -68,9 +68,13 @@ class ChunkMetadata(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     chunk_id: str = Field(..., description="Unique human-readable chunk identifier")
-    source_type: SourceType = Field(..., description="Which of the 4 BSB corpora this chunk belongs to")
+    source_type: SourceType = Field(
+        ..., description="Which of the 4 BSB corpora this chunk belongs to"
+    )
     book_code: str | None = Field(default=None, description="3-letter USJ code (e.g. 'GEN')")
-    book_name: str | None = Field(default=None, description="Full English book name (e.g. 'Genesis')")
+    book_name: str | None = Field(
+        default=None, description="Full English book name (e.g. 'Genesis')"
+    )
     testament: Literal["OT", "NT"] | None = Field(default=None, description="'OT' or 'NT'")
     canonical_order: int | None = Field(default=None, ge=1, le=66)
     chapter: int | None = Field(default=None, ge=1)
@@ -126,7 +130,9 @@ class ChunkDocument(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     chunk_id: str = Field(..., description="Unique chunk identifier, e.g. 'scripture:GEN:1:1-5:0'")
-    text: str = Field(..., min_length=1, description="Self-contained context-enriched text for embedding & LLM")
+    text: str = Field(
+        ..., min_length=1, description="Self-contained context-enriched text for embedding & LLM"
+    )
     metadata: ChunkMetadata
 
     @property
@@ -162,7 +168,9 @@ class RetrievalResult(BaseModel):
 
     chunk: ChunkDocument
     score: float = Field(default=0.0, description="Vector / RRF similarity score")
-    rerank_score: float | None = Field(default=None, description="Cross-encoder reranker score if reranked")
+    rerank_score: float | None = Field(
+        default=None, description="Cross-encoder reranker score if reranked"
+    )
     rank: int = Field(default=1, ge=1, description="1-based final rank position")
 
 

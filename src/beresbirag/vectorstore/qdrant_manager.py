@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -69,6 +69,8 @@ class QdrantManager:
         self._sparse_embeddings = sparse_embeddings
         self._dense_vector_size = dense_vector_size
         self._validated = False
+        self._collection_ready = False
+        self._vector_store: QdrantVectorStore | None = None
 
     def _create_client(self) -> QdrantClient:
         mode = self.settings.qdrant_mode
@@ -111,13 +113,20 @@ class QdrantManager:
         """Return True if the target Qdrant collection already exists."""
         return bool(self.client.collection_exists(self.collection_name))
 
+    def delete_collection(self) -> None:
+        """Delete collection and meta collection if they exist, resetting caches."""
+        if self.collection_exists():
+            self.client.delete_collection(self.collection_name)
+        if self.client.collection_exists(self.meta_collection_name):
+            self.client.delete_collection(self.meta_collection_name)
+        self._collection_ready = False
+        self._validated = False
+        self._vector_store = None
+
     def ensure_collection(self, recreate: bool = False) -> None:
         """Create the hybrid Qdrant collection and payload indexes if needed."""
         if recreate:
-            if self.collection_exists():
-                self.client.delete_collection(self.collection_name)
-            if self.client.collection_exists(self.meta_collection_name):
-                self.client.delete_collection(self.meta_collection_name)
+            self.delete_collection()
 
         if not self.collection_exists():
             self.client.create_collection(
@@ -139,6 +148,16 @@ class QdrantManager:
             self._ensure_payload_indexes()
             # Freshly created from the active configuration, so it is valid by construction.
             self._validated = True
+        else:
+            if not self._validated:
+                self.validate_collection()
+                self._validated = True
+
+        self._collection_ready = True
+        if recreate:
+            self._collection_ready = False
+            self._vector_store = None
+            self._validated = False
 
     def write_index_metadata(
         self,
@@ -173,9 +192,7 @@ class QdrantManager:
             else self.settings.fastembed_dense_model
         )
         resolved_sparse_model = sparse_model or self.settings.fastembed_sparse_model
-        resolved_dense_dim = (
-            dense_dim if dense_dim is not None else self.dense_vector_size
-        )
+        resolved_dense_dim = dense_dim if dense_dim is not None else self.dense_vector_size
 
         payload: dict[str, Any] = {
             "embedding_provider": provider,
@@ -281,10 +298,16 @@ class QdrantManager:
 
     def _ensure_validated(self) -> None:
         """Validate the collection once per manager instance (skipped while it does not exist)."""
-        if self._validated or not self.collection_exists():
+        if self._validated:
+            return
+        if self._collection_ready:
+            self._validated = True
+            return
+        if not self.collection_exists():
             return
         self.validate_collection()
         self._validated = True
+        self._collection_ready = True
 
     def _ensure_payload_indexes(self) -> None:
         """Create keyword and integer payload indexes for fast metadata filtering."""
@@ -311,16 +334,19 @@ class QdrantManager:
 
     def get_vector_store(self) -> QdrantVectorStore:
         """Return a LangChain QdrantVectorStore configured for Hybrid RRF retrieval."""
-        self.ensure_collection(recreate=False)
-        return QdrantVectorStore(
-            client=self.client,
-            collection_name=self.collection_name,
-            embedding=self.dense_embeddings,
-            sparse_embedding=self.sparse_embeddings,
-            retrieval_mode=RetrievalMode.HYBRID,
-            vector_name=DENSE_VECTOR_NAME,
-            sparse_vector_name=SPARSE_VECTOR_NAME,
-        )
+        if not self._collection_ready:
+            self.ensure_collection(recreate=False)
+        if self._vector_store is None:
+            self._vector_store = QdrantVectorStore(
+                client=self.client,
+                collection_name=self.collection_name,
+                embedding=self.dense_embeddings,
+                sparse_embedding=self.sparse_embeddings,
+                retrieval_mode=RetrievalMode.HYBRID,
+                vector_name=DENSE_VECTOR_NAME,
+                sparse_vector_name=SPARSE_VECTOR_NAME,
+            )
+        return self._vector_store
 
     def upsert_chunks(
         self,
@@ -363,11 +389,11 @@ class QdrantManager:
     @staticmethod
     def build_filter(
         *,
-        source_types: list[SourceType | str] | None = None,
-        book_codes: list[str] | None = None,
+        source_types: Sequence[SourceType | str] | None = None,
+        book_codes: Sequence[str] | None = None,
         testament: str | None = None,
         chapter: int | None = None,
-        verse_refs: list[str] | None = None,
+        verse_refs: Sequence[str] | None = None,
         topic: str | None = None,
         concordance_word: str | None = None,
     ) -> models.Filter | None:
@@ -375,10 +401,7 @@ class QdrantManager:
         must_conditions: list[models.Condition] = []
 
         if source_types:
-            values = [
-                st.value if isinstance(st, SourceType) else str(st)
-                for st in source_types
-            ]
+            values = [st.value if isinstance(st, SourceType) else str(st) for st in source_types]
             if len(values) == 1:
                 must_conditions.append(
                     models.FieldCondition(
@@ -471,9 +494,9 @@ class QdrantManager:
         qdrant_filter: models.Filter | None = None,
     ) -> list[RetrievalResult]:
         """Execute Qdrant Hybrid (Dense + Sparse BM25 RRF) search."""
-        self._ensure_validated()
         top_k = k or self.settings.retrieval_initial_k
         store = self.get_vector_store()
+        self._ensure_validated()
         docs_and_scores = store.similarity_search_with_score(
             query=query,
             k=top_k,
@@ -497,9 +520,9 @@ class QdrantManager:
         limit: int = 20,
     ) -> list[RetrievalResult]:
         """Deterministically fetch chunks matching an exact Qdrant payload filter."""
-        self._ensure_validated()
-        if not self.collection_exists():
+        if not self._collection_ready and not self.collection_exists():
             return []
+        self._ensure_validated()
         records, _ = self.client.scroll(
             collection_name=self.collection_name,
             scroll_filter=qdrant_filter,
