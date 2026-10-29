@@ -28,7 +28,11 @@ def check_avx2() -> CheckResult:
     try:
         system = platform.system()
         if system == "Windows":
-            supported = bool(ctypes.windll.kernel32.IsProcessorFeaturePresent(40))
+            # ctypes exposes windll only on Windows, so resolve it at runtime.
+            windll = getattr(ctypes, "windll", None)
+            if windll is None:
+                return CheckResult("AVX2", "warn", "unknown: ctypes.windll is unavailable")
+            supported = bool(windll.kernel32.IsProcessorFeaturePresent(40))
         elif system == "Linux":
             supported = "avx2" in Path("/proc/cpuinfo").read_text().split()
         else:
