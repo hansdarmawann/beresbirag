@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import os
+import secrets
 import time
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import streamlit as st
 
-from beresbirag.config import get_settings
+from beresbirag.config import Settings, get_settings
 from beresbirag.llm.factory import resolve_llm_target
 from beresbirag.models.schemas import AnswerMode
 from beresbirag.ui.components import (
+    render_citation_report,
     render_citations_table,
     render_error,
     render_intent_badge,
@@ -18,6 +22,7 @@ from beresbirag.ui.components import (
     render_status_panel,
 )
 from beresbirag.ui.services import (
+    append_feedback,
     fetch_installed_ollama_models,
     get_service_factory,
     model_options,
@@ -27,6 +32,11 @@ from beresbirag.ui.services import (
 if TYPE_CHECKING:
     from beresbirag.diagnostics import CheckResult
 
+LOOPBACK_HOSTS: frozenset[str] = frozenset({"127.0.0.1", "localhost", "::1", ""})
+
+# Optional module-level override for tests (passed to append_feedback when set)
+FEEDBACK_DIR: str | Path | None = None
+
 
 @st.cache_data(ttl=60, show_spinner=False)
 def _get_cached_diagnostics(
@@ -34,7 +44,7 @@ def _get_cached_diagnostics(
     qdrant_mode: str,
     collection_name: str,
     provider: str,
-    model: str,
+    model: str | None,
     resource_profile: str,
     offline_mode: bool,
 ) -> list[CheckResult]:
@@ -45,11 +55,107 @@ def _get_cached_diagnostics(
     return run_diagnostics(settings)
 
 
+def _check_exposure_and_password(settings: Settings) -> bool:
+    """Enforce non-loopback password requirement and UI_PASSWORD login gate."""
+    raw_addr = st.get_option("server.address")
+    server_addr = str(raw_addr or "127.0.0.1").strip().lower()
+    configured_pw = (os.environ.get("UI_PASSWORD") or settings.ui_password or "").strip()
+
+    if server_addr not in LOOPBACK_HOSTS and not configured_pw:
+        st.error(
+            f"Refusing to expose UI on non-loopback address '{server_addr}' without UI_PASSWORD set."
+        )
+        st.stop()
+        return False
+
+    if configured_pw:
+        if st.session_state.get("ui_authenticated") is True:
+            return True
+        entered_pw = st.text_input("UI Password", type="password", key="ui_password_input")
+        if entered_pw:
+            if secrets.compare_digest(entered_pw, configured_pw):
+                st.session_state["ui_authenticated"] = True
+                return True
+            st.error("Invalid UI password.")
+            st.stop()
+            return False
+        st.info("Enter UI_PASSWORD to access Berean Standard Bible RAG.")
+        st.stop()
+        return False
+
+    return True
+
+
+def _render_feedback_controls(turn: dict[str, Any], turn_idx: int) -> None:
+    """Render 👍/👎 rating buttons and optional comment box for a turn."""
+    comment = st.text_input(
+        "Feedback comment (optional)",
+        key=f"feedback_comment_{turn_idx}",
+    )
+    fb_col1, fb_col2, _ = st.columns([1, 1, 6])
+    if fb_col1.button("👍", key=f"feedback_up_{turn_idx}"):
+        append_feedback(
+            turn,
+            rating="up",
+            comment=comment,
+            feedback_dir=FEEDBACK_DIR,
+        )
+        st.success("Feedback saved (👍)")
+    if fb_col2.button("👎", key=f"feedback_down_{turn_idx}"):
+        append_feedback(
+            turn,
+            rating="down",
+            comment=comment,
+            feedback_dir=FEEDBACK_DIR,
+        )
+        st.success("Feedback saved (👎)")
+
+
+def _render_history_section() -> None:
+    """Render previous turns collapsed with a Clear history button."""
+    history: list[dict[str, Any]] = st.session_state.get("history", [])
+    if not history:
+        return
+
+    st.divider()
+    st.subheader(f"Session History ({len(history)})")
+    st.caption("Previous turns are shown for reference and are not sent to the LLM.")
+
+    if st.button("Clear history", key="clear_history_btn"):
+        st.session_state["history"] = []
+        st.session_state["last_response"] = None
+        return
+
+    for idx, turn in enumerate(history, start=1):
+        q_text = turn.get("query", "")
+        mode_val = turn.get("answer_mode", "")
+        timings = turn.get("timings", {})
+        total_ms = timings.get("total_ms", timings.get("retrieval_ms", 0.0))
+        header = f"Turn #{idx}: {q_text} ({mode_val} · {total_ms:.1f} ms)"
+        with st.expander(header, expanded=False):
+            st.markdown(f"**Question:** {q_text}")
+            st.caption(
+                f"Mode: `{mode_val}` | "
+                f"Retrieval: {timings.get('retrieval_ms', 0.0):.1f} ms | "
+                f"Generation: {timings.get('generation_ms', 0.0):.1f} ms | "
+                f"Total: {total_ms:.1f} ms"
+            )
+            ans = turn.get("answer", "")
+            if ans:
+                st.markdown(ans)
+
+
 def main() -> None:
     st.set_page_config(page_title="BSB RAG", layout="wide")
 
     settings = get_settings()
+    if not _check_exposure_and_password(settings):
+        return
+
     factory = get_service_factory()
+
+    if "history" not in st.session_state:
+        st.session_state["history"] = []
 
     # Determine default mode based on resource profile
     default_mode_index = 0 if settings.resource_profile == "low" else 1
@@ -151,9 +257,12 @@ def main() -> None:
 
     # ========================== Main Area ==========================
     st.title("Berean Standard Bible (BSB) RAG")
-    st.caption("Grounded Scripture Search & QA over the complete BSB ecosystem")
+    st.caption(
+        "Grounded Scripture Search & QA over the complete BSB ecosystem — "
+        "each turn runs independent retrieval; previous turns are not sent to the LLM."
+    )
 
-    # Example query buttons
+    # Example query buttons (buttons 0..3)
     example_col1, example_col2, example_col3, example_col4 = st.columns(4)
     example_queries = [
         "John 3:16",
@@ -176,16 +285,15 @@ def main() -> None:
 
     user_query = st.text_area(
         "Bible Question or Search Query",
-        value=st.session_state.get("query_text", ""),
+        key="query_text",
         height=90,
         placeholder="e.g., What does Genesis 1:1-5 say about creation?",
     )
 
+    # Button 4 is always "Ask"
     ask_clicked = st.button("Ask", type="primary")
 
     if ask_clicked:
-        st.session_state["query_text"] = user_query
-
         if not user_query.strip():
             st.warning("Please enter a question or passage reference.")
             return
@@ -203,12 +311,26 @@ def main() -> None:
                     plan, results = retriever.retrieve(user_query, top_k=top_k)
                     retrieval_ms = (time.perf_counter() - start_time) * 1000
 
-                    st.session_state["last_response"] = {
+                    timings = {
+                        "retrieval_ms": round(retrieval_ms, 2),
+                        "generation_ms": 0.0,
+                        "total_ms": round(retrieval_ms, 2),
+                    }
+                    turn_entry = {
                         "mode": "retrieve",
+                        "query": user_query,
+                        "answer": "",
+                        "answer_mode": "retrieve_only",
+                        "provider": "",
+                        "model": "",
+                        "citation_report": None,
+                        "timings": timings,
                         "plan": plan,
                         "results": results,
                         "retrieval_ms": retrieval_ms,
                     }
+                    st.session_state["last_response"] = turn_entry
+                    st.session_state["history"].append(turn_entry)
                 except Exception as exc:
                     render_error(exc)
                     return
@@ -243,27 +365,50 @@ def main() -> None:
                         gen_ms = (time.perf_counter() - gen_start) * 1000
 
                     response = pipeline.finalize(prepared, answer_text)
-
-                    st.session_state["last_response"] = {
+                    timings = response.timings or {
+                        "retrieval_ms": round(retrieval_ms, 2),
+                        "generation_ms": round(gen_ms, 2),
+                        "total_ms": round(retrieval_ms + gen_ms, 2),
+                    }
+                    turn_entry = {
                         "mode": "answer",
+                        "query": user_query,
+                        "answer": response.answer,
+                        "answer_mode": (
+                            response.answer_mode.value
+                            if hasattr(response.answer_mode, "value")
+                            else str(response.answer_mode)
+                        ),
+                        "provider": response.provider,
+                        "model": response.model,
+                        "citation_report": (
+                            response.citation_report.model_dump(mode="json")
+                            if response.citation_report is not None
+                            else None
+                        ),
+                        "timings": timings,
                         "response": response,
                         "retrieval_ms": retrieval_ms,
                         "gen_ms": gen_ms,
                     }
+                    st.session_state["last_response"] = turn_entry
+                    st.session_state["history"].append(turn_entry)
                 except Exception as exc:
                     render_error(exc)
                     return
 
     # Render persisted last response if available
     last_resp = st.session_state.get("last_response")
+    turn_count = len(st.session_state.get("history", []))
     if last_resp is not None and not ask_clicked:
         if last_resp["mode"] == "retrieve":
             render_intent_badge(last_resp["plan"])
             st.caption(f"Retrieved in {last_resp['retrieval_ms']:.1f} ms")
             render_retrieved_chunks(last_resp["results"])
+            _render_feedback_controls(last_resp, turn_count)
         elif last_resp["mode"] == "answer":
             resp = last_resp["response"]
-            render_intent_badge(resp.plan if hasattr(resp, "plan") else None)
+            render_intent_badge(resp.intent if hasattr(resp, "intent") else None)
             st.caption(
                 f"Retrieved in {last_resp['retrieval_ms']:.1f} ms | "
                 f"Generated in {last_resp['gen_ms']:.1f} ms"
@@ -274,19 +419,33 @@ def main() -> None:
             elif resp.answer_mode == AnswerMode.INSUFFICIENT_CONTEXT:
                 st.caption("Not enough context in the BSB sources")
 
+            render_citation_report(
+                resp.citation_report,
+                citation_policy=settings.citation_policy,
+                answer_mode=resp.answer_mode,
+            )
             render_citations_table(resp.citations)
             render_retrieved_chunks(resp.retrieved_chunks)
+            _render_feedback_controls(last_resp, turn_count)
     elif ask_clicked and last_resp is not None:
         if last_resp["mode"] == "retrieve":
             render_intent_badge(last_resp["plan"])
             st.caption(f"Retrieved in {last_resp['retrieval_ms']:.1f} ms")
             render_retrieved_chunks(last_resp["results"])
+            _render_feedback_controls(last_resp, turn_count)
         elif last_resp["mode"] == "answer":
             resp = last_resp["response"]
+            render_citation_report(
+                resp.citation_report,
+                citation_policy=settings.citation_policy,
+                answer_mode=resp.answer_mode,
+            )
             render_citations_table(resp.citations)
             render_retrieved_chunks(resp.retrieved_chunks)
+            _render_feedback_controls(last_resp, turn_count)
+
+    _render_history_section()
 
 
 if __name__ == "__main__":
     main()
-

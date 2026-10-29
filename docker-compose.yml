@@ -1,6 +1,10 @@
+# Quickstart:
+#   1. Start Qdrant + API:  docker compose up -d
+#   2. Ingest BSB corpus:   docker compose --profile ingest run --rm ingest
+#   3. Start Streamlit UI:  UI_PASSWORD=changeme docker compose --profile ui up -d
 services:
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.20.0
     container_name: beresbirag-qdrant
     restart: unless-stopped
     ports:
@@ -15,6 +19,7 @@ services:
       retries: 5
 
   beresbirag-api:
+    image: beresbirag:ops
     build:
       context: .
       dockerfile: Dockerfile
@@ -32,11 +37,74 @@ services:
       QDRANT_MODE: remote
       QDRANT_URL: http://qdrant:6333
       QDRANT_COLLECTION_NAME: bsb_rag
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:8000/livez'); ",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  ui:
+    image: beresbirag:ops
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: beresbirag-ui
+    profiles: ["ui"]
+    restart: unless-stopped
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    ports:
+      - "8501:8501"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      QDRANT_MODE: remote
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION_NAME: bsb_rag
+      UI_PASSWORD: ${UI_PASSWORD:-}
+    command:
+      [
+        "sh",
+        "-c",
+        "test -n \"$$UI_PASSWORD\" || { echo 'ERROR: UI_PASSWORD must be set for the ui service' >&2; exit 1; }; exec streamlit run src/beresbirag/ui/streamlit_app.py --server.address 0.0.0.0 --server.port 8501",
+      ]
+
+  ingest:
+    image: beresbirag:ops
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: beresbirag-ingest
+    profiles: ["ingest"]
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      QDRANT_MODE: remote
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION_NAME: bsb_rag
     volumes:
       - ./bsb_usj.zip:/app/bsb_usj.zip:ro
       - ./bsb_book_outlines.pdf:/app/bsb_book_outlines.pdf:ro
       - ./bsb_topical_index.xlsx:/app/bsb_topical_index.xlsx:ro
       - ./bsb_concordance.xlsx:/app/bsb_concordance.xlsx:ro
+    command:
+      [
+        "sh",
+        "-c",
+        "python scripts/verify_corpus.py && python scripts/ingest_all.py --recreate",
+      ]
 
 volumes:
   qdrant_data:

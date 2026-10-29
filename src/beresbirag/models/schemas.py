@@ -209,3 +209,10 @@ class RAGResponse(BaseModel):
     citations: list[CitationItem] = Field(default_factory=list)
     citation_report: CitationReport | None = None
     retrieved_chunks: list[RetrievalResult] = Field(default_factory=list)
+    timings: dict[str, float] = Field(
+        default_factory=lambda: {
+            "retrieval_ms": 0.0,
+            "generation_ms": 0.0,
+            "total_ms": 0.0,
+        }
+    )

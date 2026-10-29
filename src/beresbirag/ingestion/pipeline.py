@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import itertools
+import json
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,7 +18,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from beresbirag.config import Settings, get_settings
+from beresbirag.config import Settings, find_repo_root, get_settings
 from beresbirag.ingestion.concordance_parser import iter_concordance_chunks
 from beresbirag.ingestion.pdf_outline_parser import BookOutlineIndex
 from beresbirag.ingestion.topical_parser import iter_topical_chunks
@@ -252,6 +254,7 @@ class IngestionPipeline:
         verse_overlap: int = 2,
         filter_outlines_by_book: bool = False,
         show_progress: bool = True,
+        corpus_manifest: dict[str, str] | None = None,
     ) -> IngestionStats:
         """Stream and upsert BSB chunks into Qdrant with Rich progress tracking."""
         start_time = perf_counter()
@@ -314,10 +317,9 @@ class IngestionPipeline:
                 transient=False,
             ) as progress:
                 for source_type, label, chunk_iter in source_generators:
-                    chunks_list = list(chunk_iter)
-                    task_id = progress.add_task(label, total=len(chunks_list))
+                    task_id = progress.add_task(label, total=None)
                     upserted_for_source = self._upsert_with_progress(
-                        chunks_list,
+                        chunk_iter,
                         batch_size=batch_size,
                         progress=progress,
                         task_id=task_id,
@@ -326,11 +328,24 @@ class IngestionPipeline:
                     total_upserted += upserted_for_source
         else:
             for source_type, _label, chunk_iter in source_generators:
-                upserted_for_source = self.qdrant_manager.upsert_chunks(
-                    chunk_iter, batch_size=batch_size
+                upserted_for_source = self._upsert_with_progress(
+                    chunk_iter,
+                    batch_size=batch_size,
                 )
                 counts_by_source[source_type.value] = upserted_for_source
                 total_upserted += upserted_for_source
+
+        resolved_manifest = (
+            corpus_manifest
+            if corpus_manifest is not None
+            else self._load_default_manifest_hashes()
+        )
+        self.qdrant_manager.write_index_metadata(
+            max_verses_per_chunk=max_verses_per_chunk,
+            verse_overlap=verse_overlap,
+            corpus_manifest=resolved_manifest,
+            recreate=recreate,
+        )
 
         elapsed = perf_counter() - start_time
         return IngestionStats(
@@ -340,21 +355,39 @@ class IngestionPipeline:
             elapsed_seconds=elapsed,
         )
 
+    @staticmethod
+    def _load_default_manifest_hashes() -> dict[str, str]:
+        manifest_path = find_repo_root() / "data" / "corpus_manifest.json"
+        if not manifest_path.is_file():
+            return {}
+        try:
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            files = data.get("files", []) if isinstance(data, dict) else data
+            return {
+                str(entry["name"]): str(entry["sha256"])
+                for entry in files
+                if isinstance(entry, dict) and entry.get("name") and entry.get("sha256")
+            }
+        except Exception:
+            return {}
+
     def _upsert_with_progress(
         self,
-        chunks: list[ChunkDocument],
+        chunk_iter: Iterable[ChunkDocument],
         *,
         batch_size: int,
-        progress: Progress,
-        task_id: int,
+        progress: Progress | None = None,
+        task_id: int | None = None,
     ) -> int:
-        if not chunks:
-            return 0
+        iterator = iter(chunk_iter)
         total = 0
-        for idx in range(0, len(chunks), batch_size):
-            batch = chunks[idx : idx + batch_size]
+        while True:
+            batch = list(itertools.islice(iterator, batch_size))
+            if not batch:
+                break
             upserted = self.qdrant_manager.upsert_chunks(batch, batch_size=batch_size)
             total += upserted
-            progress.update(task_id, advance=len(batch))
+            if progress is not None and task_id is not None:
+                progress.update(task_id, advance=len(batch))
         return total
 

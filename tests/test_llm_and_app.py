@@ -262,41 +262,40 @@ def test_fastapi_endpoints(sample_results: list[RetrievalResult]) -> None:
         lambda: mock_pipeline_factory
     )
 
-    client = TestClient(fastapi_app)
+    with TestClient(fastapi_app) as client:
+        # 1. GET /health
+        res_health = client.get("/health")
+        assert res_health.status_code == 200
+        assert res_health.json() == {"status": "ok", "collection": "bsb_rag"}
 
-    # 1. GET /health
-    res_health = client.get("/health")
-    assert res_health.status_code == 200
-    assert res_health.json() == {"status": "ok", "collection": "bsb_rag"}
+        # 2. POST /retrieve
+        res_retrieve = client.post(
+            "/retrieve", json={"query": "Genesis 1:1", "top_k": 2}
+        )
+        assert res_retrieve.status_code == 200
+        data_retrieve = res_retrieve.json()
+        assert len(data_retrieve) == 2
+        assert (
+            data_retrieve[0]["chunk"]["metadata"]["canonical_ref"] == "Genesis 1:1"
+        )
 
-    # 2. POST /retrieve
-    res_retrieve = client.post(
-        "/retrieve", json={"query": "Genesis 1:1", "top_k": 2}
-    )
-    assert res_retrieve.status_code == 200
-    data_retrieve = res_retrieve.json()
-    assert len(data_retrieve) == 2
-    assert (
-        data_retrieve[0]["chunk"]["metadata"]["canonical_ref"] == "Genesis 1:1"
-    )
-
-    # 3. POST /query
-    res_query = client.post(
-        "/query",
-        json={
-            "query": "What happened in the beginning?",
-            "top_k": 2,
-            "provider": "openai",
-            "model": "gpt-4o-mini",
-            "effort": "minimal",
-        },
-    )
-    assert res_query.status_code == 200
-    data_query = res_query.json()
-    assert data_query["query"] == "What happened in the beginning?"
-    assert data_query["answer"] == fake_answer
-    assert len(data_query["citations"]) == 2
-    assert data_query["citations"][0]["canonical_ref"] == "Genesis 1:1"
+        # 3. POST /query
+        res_query = client.post(
+            "/query",
+            json={
+                "query": "What happened in the beginning?",
+                "top_k": 2,
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "effort": "minimal",
+            },
+        )
+        assert res_query.status_code == 200
+        data_query = res_query.json()
+        assert data_query["query"] == "What happened in the beginning?"
+        assert data_query["answer"] == fake_answer
+        assert len(data_query["citations"]) == 2
+        assert data_query["citations"][0]["canonical_ref"] == "Genesis 1:1"
 
     fastapi_app.dependency_overrides.clear()
 

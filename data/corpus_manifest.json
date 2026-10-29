@@ -1,0 +1,33 @@
+{
+  "files": [
+    {
+      "name": "bsb_usj.zip",
+      "bytes": 2005673,
+      "sha256": "062785c0621e0976e7bf3d5a0c32d3d38c5e9d8f71215217c5d33be03bdfaede",
+      "source_url": "TODO: official BSB download URL",
+      "notes": "Berean Standard Bible (BSB) 66-book USJ 3.1 XML archive with pericope headings, footnotes, and cross-references."
+    },
+    {
+      "name": "bsb_book_outlines.pdf",
+      "bytes": 1099069,
+      "sha256": "a3a648d85ce85bf0f7d2404769ebfcb73e6e3e3dd880eb8122b2d4d0318ff0e0",
+      "source_url": "TODO: official BSB download URL",
+      "notes": "Berean Standard Bible (BSB) 66-book hierarchical book and section outlines PDF."
+    },
+    {
+      "name": "bsb_topical_index.xlsx",
+      "bytes": 9823971,
+      "sha256": "7de7a0d688bf4fc89d6087b12d94e47e091b5e3ac0146362da13819bbfd9ad6f",
+      "source_url": "TODO: official BSB download URL",
+      "notes": "Berean Standard Bible (BSB) Topical Index Excel workbook (~121k rows)."
+    },
+    {
+      "name": "bsb_concordance.xlsx",
+      "bytes": 52051537,
+      "sha256": "01a888e221cdfb652b19e2791e82b5a7141beb703d54661b8819ff49d89580d3",
+      "source_url": "TODO: official BSB download URL",
+      "notes": "Berean Standard Bible (BSB) Exhaustive Concordance Excel workbook (~389k rows)."
+    }
+  ]
+}
+

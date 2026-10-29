@@ -110,6 +110,30 @@ class Settings(BaseSettings):
     retrieval_initial_k: int = Field(default=25, ge=1, le=200, alias="RETRIEVAL_INITIAL_K")
     retrieval_top_k: int = Field(default=6, ge=1, le=50, alias="RETRIEVAL_TOP_K")
 
+    # API Concurrency, Auth, Limits & Observability Settings
+    max_concurrent_requests: int = Field(
+        default=4, ge=1, alias="MAX_CONCURRENT_REQUESTS"
+    )
+    queue_timeout_s: float = Field(
+        default=30.0, gt=0.0, alias="QUEUE_TIMEOUT_S"
+    )
+    api_keys: str = Field(default="", alias="API_KEYS")
+    rate_limit_per_minute: int = Field(
+        default=30, ge=0, alias="RATE_LIMIT_PER_MINUTE"
+    )
+    allowed_models: str = Field(default="", alias="ALLOWED_MODELS")
+    max_query_chars: int = Field(
+        default=1000, ge=1, alias="MAX_QUERY_CHARS"
+    )
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    log_format: Literal["text", "json"] = Field(
+        default="text", alias="LOG_FORMAT"
+    )
+
+    # UI & Feedback Settings
+    feedback_dir: str = Field(default="./feedback", alias="FEEDBACK_DIR")
+    ui_password: str = Field(default="", alias="UI_PASSWORD")
+
     # Raw BSB Source File Paths
     bsb_usj_zip_path: str = Field(default="./bsb_usj.zip", alias="BSB_USJ_ZIP_PATH")
     bsb_outlines_pdf_path: str = Field(
@@ -131,6 +155,7 @@ class Settings(BaseSettings):
                 "context_token_budget": 1600, "context_chunk_token_cap": 400,
                 "fast_path_enabled": True, "retrieval_top_k": 3, "retrieval_initial_k": 10,
                 "reranker_model": "ms-marco-TinyBERT-L-2-v2",
+                "max_concurrent_requests": 1,
             }
             for field, value in defaults.items():
                 if field not in explicit:
