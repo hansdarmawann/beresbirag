@@ -10,12 +10,14 @@ from beresbirag.vectorstore.embeddings import (
 from beresbirag.vectorstore.qdrant_manager import (
     DENSE_VECTOR_NAME,
     SPARSE_VECTOR_NAME,
+    CollectionConfigError,
     QdrantManager,
 )
 
 __all__ = [
     "DENSE_VECTOR_NAME",
     "SPARSE_VECTOR_NAME",
+    "CollectionConfigError",
     "DeterministicBM25SparseEmbeddings",
     "DeterministicHashEmbeddings",
     "FastEmbedDenseEmbeddings",

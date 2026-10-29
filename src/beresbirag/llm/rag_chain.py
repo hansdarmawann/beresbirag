@@ -10,13 +10,20 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import BasePromptTemplate
 
 from beresbirag.config import Settings, get_settings
-from beresbirag.llm.factory import create_chat_model
+from beresbirag.llm.factory import create_chat_model, resolve_llm_target
 from beresbirag.llm.prompts import BSB_RAG_PROMPT
 from beresbirag.models.schemas import (
+    AnswerMode,
     CitationItem,
     QueryIntent,
     RAGResponse,
     RetrievalResult,
+)
+
+# Mirrors rule 4 of SYSTEM_PROMPT; returned without calling the LLM when retrieval is empty.
+INSUFFICIENT_CONTEXT_ANSWER = (
+    "The retrieved Berean Standard Bible context does not contain sufficient "
+    "information to answer this question."
 )
 
 
@@ -77,8 +84,9 @@ class BSBRAGPipeline:
     ) -> None:
         self.retriever = retriever
         self.settings = settings or get_settings()
-        self.provider = provider or self.settings.llm_provider
-        self.model_name = model_name or self.settings.llm_model
+        self.provider, self.model_name = resolve_llm_target(
+            provider, model_name, self.settings
+        )
         self.effort = effort or self.settings.llm_effort
 
         self.llm = llm or create_chat_model(
@@ -116,6 +124,22 @@ class BSBRAGPipeline:
             provider_label = "openai"
         return provider_label, model_label
 
+    def _insufficient_context_response(
+        self, query: str, intent: QueryIntent
+    ) -> RAGResponse:
+        provider_label, model_label = self._resolve_model_metadata()
+        return RAGResponse(
+            query=query,
+            answer=INSUFFICIENT_CONTEXT_ANSWER,
+            intent=intent,
+            provider=provider_label,
+            model=model_label,
+            effort=self.effort,
+            answer_mode=AnswerMode.INSUFFICIENT_CONTEXT,
+            citations=[],
+            retrieved_chunks=[],
+        )
+
     def ask(self, query: str, top_k: int | None = None) -> RAGResponse:
         """Synchronously query the BSB RAG pipeline."""
         effective_top_k = (
@@ -124,6 +148,8 @@ class BSBRAGPipeline:
         plan, results = self.retriever.retrieve(query, top_k=effective_top_k)
 
         intent = self._extract_intent(plan)
+        if not results:
+            return self._insufficient_context_response(query, intent)
         context_str = format_context_blocks(results)
         answer = self.chain.invoke({"context": context_str, "question": query})
 
@@ -151,6 +177,8 @@ class BSBRAGPipeline:
         )
 
         intent = self._extract_intent(plan)
+        if not results:
+            return self._insufficient_context_response(query, intent)
         context_str = format_context_blocks(results)
         answer = await self.chain.ainvoke({"context": context_str, "question": query})
 

@@ -11,6 +11,7 @@ from beresbirag.models.books import (
 )
 from beresbirag.models.schemas import (
     BERESBIRAG_UUID_NAMESPACE,
+    AnswerMode,
     ChunkDocument,
     ChunkMetadata,
     CitationItem,
@@ -23,6 +24,7 @@ from beresbirag.models.schemas import (
 )
 
 __all__ = [
+    "AnswerMode",
     "BERESBIRAG_UUID_NAMESPACE",
     "BOOKS_BY_CODE",
     "BSB_BOOKS",

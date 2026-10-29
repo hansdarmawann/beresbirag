@@ -118,10 +118,22 @@ class IngestionPipeline:
             qdrant_manager.settings if qdrant_manager is not None else get_settings()
         )
         self.qdrant_manager = qdrant_manager or QdrantManager(settings=self.settings)
-        self.usj_zip_path = usj_zip_path
-        self.outlines_pdf_path = outlines_pdf_path
-        self.topical_xlsx_path = topical_xlsx_path
-        self.concordance_xlsx_path = concordance_xlsx_path
+        # Resolve missing paths from the injected settings so parsers never fall back to the
+        # global get_settings().
+        self.usj_zip_path: str | Path = (
+            usj_zip_path if usj_zip_path is not None else self.settings.usj_zip_file
+        )
+        self.outlines_pdf_path: str | Path = (
+            outlines_pdf_path if outlines_pdf_path is not None else self.settings.outlines_pdf_file
+        )
+        self.topical_xlsx_path: str | Path = (
+            topical_xlsx_path if topical_xlsx_path is not None else self.settings.topical_xlsx_file
+        )
+        self.concordance_xlsx_path: str | Path = (
+            concordance_xlsx_path
+            if concordance_xlsx_path is not None
+            else self.settings.concordance_xlsx_file
+        )
         self.console = console or Console()
         self._outline_index: BookOutlineIndex | None = None
 

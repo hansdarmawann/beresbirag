@@ -150,7 +150,7 @@ def test_create_chat_model_anthropic() -> None:
         provider="anthropic", effort="minimal", settings=settings
     )
     assert isinstance(model, ChatAnthropic)
-    assert model.model == "claude-3-5-haiku-latest"
+    assert model.model == "claude-haiku-5-5"
     assert model.temperature == 0.0
     assert model.max_tokens == 1024
 
