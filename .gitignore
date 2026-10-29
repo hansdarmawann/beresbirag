@@ -28,6 +28,8 @@ worktrees/
 qdrant_storage/
 .fastembed_cache/
 .huggingface_cache/
+.model_cache/
+snapshots/
 
 # Environment & Secrets
 .env

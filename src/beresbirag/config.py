@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ class Settings(BaseSettings):
     )
 
     # LLM Provider & Minimal-Effort Settings
-    llm_provider: Literal["openai", "anthropic"] = Field(default="openai", alias="LLM_PROVIDER")
+    llm_provider: Literal["openai", "anthropic", "ollama"] = Field(default="openai", alias="LLM_PROVIDER")
     # None/empty = provider default (see beresbirag.llm.factory.DEFAULT_MODELS)
     llm_model: str | None = Field(default=None, alias="LLM_MODEL")
     llm_effort: Literal["minimal", "low", "medium", "high"] = Field(
@@ -64,6 +65,17 @@ class Settings(BaseSettings):
 
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
+
+    resource_profile: Literal["standard", "low"] = Field(default="standard", alias="RESOURCE_PROFILE")
+    offline_mode: bool = Field(default=False, alias="OFFLINE_MODE")
+    ollama_base_url: str = Field(default="http://localhost:11434", alias="OLLAMA_BASE_URL")
+    llm_num_ctx: int = Field(default=4096, ge=1, alias="LLM_NUM_CTX")
+    llm_num_predict: int = Field(default=512, ge=1, alias="LLM_NUM_PREDICT")
+    llm_num_thread: int | None = Field(default=None, ge=1, alias="LLM_NUM_THREAD")
+    context_token_budget: int | None = Field(default=None, ge=1, alias="CONTEXT_TOKEN_BUDGET")
+    context_chunk_token_cap: int | None = Field(default=None, ge=1, alias="CONTEXT_CHUNK_TOKEN_CAP")
+    fast_path_enabled: bool = Field(default=False, alias="FAST_PATH_ENABLED")
+    model_cache_dir: str = Field(default="./.model_cache", alias="MODEL_CACHE_DIR")
 
     # Dense & Sparse Embedding Settings
     embedding_provider: Literal["auto", "openai", "fastembed"] = Field(
@@ -107,6 +119,25 @@ class Settings(BaseSettings):
     bsb_concordance_xlsx_path: str = Field(
         default="./bsb_concordance.xlsx", alias="BSB_CONCORDANCE_XLSX_PATH"
     )
+
+    @model_validator(mode="after")
+    def apply_resource_profile(self) -> Settings:
+        explicit = self.model_fields_set.copy()
+        if self.resource_profile == "low":
+            defaults = {
+                "llm_num_ctx": 3072, "llm_num_predict": 384, "llm_num_thread": 2,
+                "context_token_budget": 1600, "context_chunk_token_cap": 400,
+                "fast_path_enabled": True, "retrieval_top_k": 3, "retrieval_initial_k": 10,
+                "reranker_model": "ms-marco-TinyBERT-L-2-v2",
+            }
+            for field, value in defaults.items():
+                if field not in explicit:
+                    setattr(self, field, value)
+        if self.resource_profile == "low" or self.offline_mode:
+            self.embedding_provider = "fastembed"
+        if self.offline_mode:
+            os.environ.setdefault("HF_HUB_OFFLINE", "1")
+        return self
 
     @property
     def resolved_embedding_provider(self) -> Literal["openai", "fastembed"]:

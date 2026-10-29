@@ -43,8 +43,8 @@ class RetrieveRequest(BaseModel):
     query: str = Field(
         ..., min_length=1, description="Scripture reference, topic, or search query"
     )
-    top_k: int = Field(
-        default=6, ge=1, le=50, description="Maximum number of chunks to return"
+    top_k: int | None = Field(
+        default=None, ge=1, le=50, description="Maximum number of chunks to return"
     )
 
 
@@ -56,11 +56,11 @@ class QueryRequest(BaseModel):
     query: str = Field(
         ..., min_length=1, description="Bible question or topic inquiry"
     )
-    top_k: int = Field(
-        default=6, ge=1, le=50, description="Maximum context chunks to retrieve"
+    top_k: int | None = Field(
+        default=None, ge=1, le=50, description="Maximum context chunks to retrieve"
     )
-    provider: Literal["openai", "anthropic"] | None = Field(
-        default=None, description="LLM provider: 'openai' or 'anthropic'"
+    provider: Literal["openai", "anthropic", "ollama"] | None = Field(
+        default=None, description="LLM provider: 'openai', 'anthropic', or 'ollama'"
     )
     model: str | None = Field(
         default=None, description="Specific model name override"
@@ -92,7 +92,7 @@ def get_pipeline_factory(
     """Dependency provider returning a callable factory for BSBRAGPipeline."""
 
     def _factory(
-        provider: Literal["openai", "anthropic"] | None = None,
+        provider: Literal["openai", "anthropic", "ollama"] | None = None,
         model_name: str | None = None,
         effort: Literal["minimal", "low", "medium", "high"] | None = None,
     ) -> BSBRAGPipeline:

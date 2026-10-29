@@ -13,7 +13,13 @@ from rich.panel import Panel
 from rich.table import Table
 
 from beresbirag.config import Settings, get_settings
-from beresbirag.llm.factory import MissingAPIKeyError, ProviderModelMismatchError
+from beresbirag.diagnostics import run_diagnostics
+from beresbirag.llm.factory import (
+    MissingAPIKeyError,
+    ProviderModelMismatchError,
+    ProviderUnavailableError,
+    _resolve_api_key,
+)
 from beresbirag.llm.rag_chain import BSBRAGPipeline
 from beresbirag.models.schemas import RetrievalResult
 from beresbirag.vectorstore.qdrant_manager import CollectionConfigError
@@ -22,6 +28,7 @@ from beresbirag.vectorstore.qdrant_manager import CollectionConfigError
 CONFIG_ERRORS: tuple[type[Exception], ...] = (
     MissingAPIKeyError,
     ProviderModelMismatchError,
+    ProviderUnavailableError,
     CollectionConfigError,
 )
 CONFIG_ERROR_EXIT_CODE = 2
@@ -109,8 +116,8 @@ def retrieve_command(
     question: str = typer.Argument(
         ..., help="The Bible passage reference, topic, or search query to retrieve"
     ),
-    top_k: int = typer.Option(
-        6, "--top-k", "-k", help="Number of top chunks to retrieve"
+    top_k: int | None = typer.Option(
+        None, "--top-k", "-k", min=1, max=50, help="Number of top chunks to retrieve (default: profile)"
     ),
 ) -> None:
     """Retrieve ranked Berean Standard Bible chunks without invoking an LLM."""
@@ -119,7 +126,7 @@ def retrieve_command(
 
     try:
         with console.status("[bold cyan]Searching Berean Standard Bible corpus..."):
-            plan, results = retriever.retrieve(question, top_k=top_k)
+            plan, results = retriever.retrieve(question, top_k=top_k if top_k is not None else settings.retrieval_top_k)
     except CollectionConfigError as exc:
         raise _exit_with_config_error(exc) from exc
 
@@ -154,7 +161,7 @@ def query_command(
         None,
         "--provider",
         "-p",
-        help="LLM provider: 'openai' or 'anthropic' (default: LLM_PROVIDER)",
+        help="LLM provider: 'openai', 'anthropic', or 'ollama' (default: LLM_PROVIDER)",
     ),
     model: str | None = typer.Option(
         None,
@@ -168,8 +175,8 @@ def query_command(
         "-e",
         help="Reasoning effort: 'minimal', 'low', 'medium', 'high' (default: LLM_EFFORT)",
     ),
-    top_k: int = typer.Option(
-        6, "--top-k", "-k", help="Number of context chunks to retrieve"
+    top_k: int | None = typer.Option(
+        None, "--top-k", "-k", min=1, max=50, help="Number of context chunks to retrieve (default: profile)"
     ),
 ) -> None:
     """Answer questions grounded strictly in the Berean Standard Bible using LCEL."""
@@ -192,6 +199,12 @@ def query_command(
                 model_name=model,
                 effort=effort,  # type: ignore[arg-type]
             )
+            # Preserve the standard CLI's configuration-error contract without
+            # constructing a model. Fast paths and retrieval remain key-free.
+            if not settings.fast_path_enabled and pipeline.provider in {"openai", "anthropic"}:
+                if settings.offline_mode:
+                    raise ProviderUnavailableError("offline mode: use --provider ollama")
+                _resolve_api_key(pipeline.provider, None, settings)
 
         with console.status("[bold green]Querying BSB RAG Pipeline..."):
             response = pipeline.ask(question, top_k=top_k)
@@ -202,7 +215,7 @@ def query_command(
         Panel(
             Markdown(response.answer),
             title=escape(
-                f"BSB Answer [{response.provider} / {response.model} | effort: {response.effort}]"
+                f"BSB Answer [{response.provider} / {response.model} | effort: {response.effort} | {response.answer_mode}]"
             ),
             border_style="green",
         )
@@ -230,6 +243,20 @@ def query_command(
                 cit.chunk_id,
             )
         console.print(cit_table)
+
+
+@app.command("doctor")
+def doctor_command() -> None:
+    """Check hardware, local model caches, Qdrant, and configured LLM availability."""
+    checks = run_diagnostics(get_settings())
+    table = Table(title="BSB diagnostics")
+    for column in ("Check", "Status", "Detail"):
+        table.add_column(column)
+    for check in checks:
+        table.add_row(check.name, check.status, escape(check.detail))
+    console.print(table)
+    if any(check.status == "fail" for check in checks):
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
