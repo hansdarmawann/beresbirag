@@ -141,9 +141,7 @@ def test_pipeline_anthropic_uses_anthropic_default_model() -> None:
     assert settings.llm_provider == "openai"
     assert settings.llm_model is None
 
-    pipeline = BSBRAGPipeline(
-        retriever=FakeRetriever([]), provider="anthropic", settings=settings
-    )
+    pipeline = BSBRAGPipeline(retriever=FakeRetriever([]), provider="anthropic", settings=settings)
 
     assert isinstance(pipeline.llm, ChatAnthropic)
     assert pipeline.llm.model == "claude-haiku-5-5"
@@ -478,7 +476,14 @@ def test_cli_query_provider_model_mismatch_exits_2(cli_env: dict[str, Any]) -> N
     cli_env["use_settings"](_settings(OPENAI_API_KEY="test-key"))
     result = CliRunner().invoke(
         cli_mod.app,
-        ["query", "What does Genesis 1:1 say?", "--provider", "openai", "--model", "claude-haiku-5-5"],
+        [
+            "query",
+            "What does Genesis 1:1 say?",
+            "--provider",
+            "openai",
+            "--model",
+            "claude-haiku-5-5",
+        ],
     )
     assert result.exit_code == 2
 

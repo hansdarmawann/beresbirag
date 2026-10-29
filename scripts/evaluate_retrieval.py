@@ -286,11 +286,7 @@ def evaluate_benchmark(
                 break
 
         top_chunk_id = retrieved[0].chunk.chunk_id if retrieved else None
-        top_ref = (
-            (retrieved[0].chunk.metadata.canonical_ref or top_chunk_id)
-            if retrieved
-            else None
-        )
+        top_ref = (retrieved[0].chunk.metadata.canonical_ref or top_chunk_id) if retrieved else None
         eval_results.append(
             CaseEvaluationResult(
                 case=case,
@@ -505,7 +501,9 @@ def slice_requirements(cases: Sequence[RetrievalCase]) -> tuple[set[str], set[st
         plan = route_query(case.query)
         exp = case.expected
         books.update(plan.book_codes)
-        books.update(ref.split(" ", 1)[0].upper() for ref in [*exp.verse_refs_any, *exp.verse_refs_all])
+        books.update(
+            ref.split(" ", 1)[0].upper() for ref in [*exp.verse_refs_any, *exp.verse_refs_all]
+        )
         if exp.book_code:
             books.add(exp.book_code.upper())
         for topic in (exp.topic, plan.topic_keyword):
@@ -624,7 +622,9 @@ def render_case_report(outcomes: Sequence[CaseOutcome]) -> dict[str, Any]:
     core = [o for o in outcomes if not o.case.known_gap]
     gaps = [o for o in outcomes if o.case.known_gap]
     categories, overall = group_outcomes(core)
-    console.print(_stats_table("BSB Retrieval Evaluation (per category)", {**categories, "OVERALL": overall}))
+    console.print(
+        _stats_table("BSB Retrieval Evaluation (per category)", {**categories, "OVERALL": overall})
+    )
 
     misses = [o for o in core if not o.passed]
     if misses:
@@ -735,7 +735,9 @@ def run_verification(cases_path: Path, answer_cases_path: Path | None, settings:
         for issue in issues:
             console.print(f"[red]{issue.case_id}[/red]: {issue.message}")
         failing = sorted({issue.case_id for issue in issues})
-        console.print(f"[bold red]{len(failing)} case(s) unsatisfiable: {', '.join(failing)}[/bold red]")
+        console.print(
+            f"[bold red]{len(failing)} case(s) unsatisfiable: {', '.join(failing)}[/bold red]"
+        )
         return 1
     console.print("[bold green]All cases are satisfiable by the real BSB corpus.[/bold green]")
     return 0

@@ -181,9 +181,7 @@ def fetch_installed_ollama_models(settings: Settings | None = None) -> list[str]
             if resp.status_code == 200:
                 data = resp.json()
                 models = [
-                    m["name"]
-                    for m in data.get("models", [])
-                    if isinstance(m, dict) and "name" in m
+                    m["name"] for m in data.get("models", []) if isinstance(m, dict) and "name" in m
                 ]
                 return models
     except Exception:

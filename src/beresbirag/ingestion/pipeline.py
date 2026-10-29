@@ -336,9 +336,7 @@ class IngestionPipeline:
                 total_upserted += upserted_for_source
 
         resolved_manifest = (
-            corpus_manifest
-            if corpus_manifest is not None
-            else self._load_default_manifest_hashes()
+            corpus_manifest if corpus_manifest is not None else self._load_default_manifest_hashes()
         )
         self.qdrant_manager.write_index_metadata(
             max_verses_per_chunk=max_verses_per_chunk,
@@ -390,4 +388,3 @@ class IngestionPipeline:
             if progress is not None and task_id is not None:
                 progress.update(task_id, advance=len(batch))
         return total
-

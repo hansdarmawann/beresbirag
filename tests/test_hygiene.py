@@ -15,7 +15,9 @@ from beresbirag.retrieval import BSBHybridRetriever, format_context_blocks
 from beresbirag.vectorstore.qdrant_manager import QdrantManager
 
 
-def _make_dummy_result(chunk_id: str, text: str, ref: str, source_type: SourceType) -> RetrievalResult:
+def _make_dummy_result(
+    chunk_id: str, text: str, ref: str, source_type: SourceType
+) -> RetrievalResult:
     chunk = ChunkDocument(
         chunk_id=chunk_id,
         text=text,
@@ -34,7 +36,9 @@ def _make_dummy_result(chunk_id: str, text: str, ref: str, source_type: SourceTy
 def test_context_formatter_dedup() -> None:
     """1. BSBHybridRetriever.format_context_for_llm(results) == format_context_blocks(results)."""
     results = [
-        _make_dummy_result("chunk-1", "In the beginning was the Word...", "John 1:1", SourceType.SCRIPTURE),
+        _make_dummy_result(
+            "chunk-1", "In the beginning was the Word...", "John 1:1", SourceType.SCRIPTURE
+        ),
         _make_dummy_result("chunk-2", "The Prologue of John", "John 1", SourceType.BOOK_OUTLINE),
     ]
 

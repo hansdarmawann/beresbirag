@@ -72,7 +72,7 @@ MAX_CONSECUTIVE_ERRORS = 3
 
 JUDGE_PROMPT = (
     "You are checking whether an answer is fully supported by the SOURCES.\n"
-    "Reply with JSON only: {{\"supported\": true|false, \"unsupported_claims\": [\"...\"]}}.\n\n"
+    'Reply with JSON only: {{"supported": true|false, "unsupported_claims": ["..."]}}.\n\n'
     "SOURCES:\n{context}\n\nQUESTION: {question}\n\nANSWER:\n{answer}"
 )
 
@@ -321,7 +321,11 @@ def run_model(
     result = ModelRun(provider=provider, model=model)
     try:
         pipeline = BSBRAGPipeline(
-            retriever=retriever, llm=llm, provider=provider, model_name=model, settings=settings  # type: ignore[arg-type]
+            retriever=retriever,
+            llm=llm,
+            provider=provider,
+            model_name=model,
+            settings=settings,  # type: ignore[arg-type]
         )
     except Exception as exc:
         result.error = f"{type(exc).__name__}: {exc}"
@@ -336,8 +340,11 @@ def run_model(
             consecutive_errors = consecutive_errors + 1 if run.error else 0
             console.print(
                 f"  [{provider}:{model}] {case.id} "
-                + (f"[red]ERROR {run.error}[/red]" if run.error else
-                   f"{run.response.answer_mode.value} ({run.total_s:.1f}s)")  # type: ignore[union-attr]
+                + (
+                    f"[red]ERROR {run.error}[/red]"
+                    if run.error
+                    else f"{run.response.answer_mode.value} ({run.total_s:.1f}s)"
+                )  # type: ignore[union-attr]
             )
             if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
                 result.error = f"aborted after {consecutive_errors} consecutive errors: {run.error}"
@@ -474,7 +481,9 @@ def main(
     top_k: int | None = typer.Option(None, "--top-k", help="Override RETRIEVAL_TOP_K."),
     report_json: Annotated[
         Path | None,
-        typer.Option("--report-json", help="JSON report path (default ./eval/reports/answers-<ts>.json)."),
+        typer.Option(
+            "--report-json", help="JSON report path (default ./eval/reports/answers-<ts>.json)."
+        ),
     ] = None,
 ) -> None:
     """Run the answer cases for each model and report citation, refusal, latency and RAM metrics."""
@@ -504,7 +513,9 @@ def main(
     if judge:
         judge_provider, judge_name = parse_models(judge)[0]
         judge_model = create_chat_model(
-            provider=judge_provider, model_name=judge_name, settings=settings  # type: ignore[arg-type]
+            provider=judge_provider,
+            model_name=judge_name,
+            settings=settings,  # type: ignore[arg-type]
         )
 
     model_runs: list[ModelRun] = []
@@ -512,9 +523,14 @@ def main(
         console.print(f"[bold]Evaluating {provider}:{model} on {len(suite)} cases[/bold]")
         model_runs.append(
             run_model(
-                provider, model, suite, retriever, settings,
+                provider,
+                model,
+                suite,
+                retriever,
+                settings,
                 llm=CitingFakeChatModel() if fake_llm else None,
-                judge=judge_model, sample_ram=sample_ram,
+                judge=judge_model,
+                sample_ram=sample_ram,
             )  # fmt: skip
         )
 
@@ -522,7 +538,9 @@ def main(
     gap_rows: dict[str, dict[str, Any]] = {}
     for mr in model_runs:
         label = f"{mr.provider}:{mr.model}"
-        core_rows[label] = summarize_runs([r for r in mr.runs if not r.case.known_gap], mr.peak_ram_bytes)
+        core_rows[label] = summarize_runs(
+            [r for r in mr.runs if not r.case.known_gap], mr.peak_ram_bytes
+        )
         gaps = [r for r in mr.runs if r.case.known_gap]
         if gaps:
             gap_rows[label] = summarize_runs(gaps)

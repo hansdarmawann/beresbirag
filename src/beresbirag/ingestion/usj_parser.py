@@ -233,14 +233,20 @@ def _build_chunk(
     heading = " / ".join(headings) or None
 
     outline_path = (
-        outline_index.get_outline_breadcrumbs(book.code, chapter, v_start) if outline_index else None
+        outline_index.get_outline_breadcrumbs(book.code, chapter, v_start)
+        if outline_index
+        else None
     )
     cross_refs = list(pericope.cross_refs)
     footnotes = [
         f"[{book.name} {chapter}:{v.number}] {note}" for v in verses for note in v.footnotes
     ]
 
-    header_parts = [f"Book: {book.name}", f"Passage: {canonical_ref}", f"Testament: {book.testament}"]
+    header_parts = [
+        f"Book: {book.name}",
+        f"Passage: {canonical_ref}",
+        f"Testament: {book.testament}",
+    ]
     if outline_path:
         header_parts.append(f"Outline: {outline_path}")
     if heading:
@@ -322,6 +328,4 @@ def iter_usj_scripture_chunks(
 
         for _, book, name in sorted(entries, key=lambda e: e[0]):
             doc = json.loads(archive.read(name).decode("utf-8-sig"))
-            yield from parse_usj_book(
-                doc, book, outline_index, max_verses_per_chunk, verse_overlap
-            )
+            yield from parse_usj_book(doc, book, outline_index, max_verses_per_chunk, verse_overlap)

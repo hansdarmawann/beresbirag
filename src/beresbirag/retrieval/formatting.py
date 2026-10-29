@@ -23,9 +23,7 @@ def format_context_blocks(
         meta = result.chunk.metadata
         reference = meta.canonical_ref or result.chunk.chunk_id
         source_type_val = (
-            meta.source_type.value
-            if hasattr(meta.source_type, "value")
-            else str(meta.source_type)
+            meta.source_type.value if hasattr(meta.source_type, "value") else str(meta.source_type)
         )
         header = f"=== SOURCE [{idx}] | Reference: {reference} | Type: {source_type_val} ==="
         blocks.append(f"{header}\n{result.chunk.text.strip()}")

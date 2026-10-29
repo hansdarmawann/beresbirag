@@ -192,9 +192,7 @@ class QdrantManager:
             else self.settings.fastembed_dense_model
         )
         resolved_sparse_model = sparse_model or self.settings.fastembed_sparse_model
-        resolved_dense_dim = (
-            dense_dim if dense_dim is not None else self.dense_vector_size
-        )
+        resolved_dense_dim = dense_dim if dense_dim is not None else self.dense_vector_size
 
         payload: dict[str, Any] = {
             "embedding_provider": provider,
@@ -403,10 +401,7 @@ class QdrantManager:
         must_conditions: list[models.Condition] = []
 
         if source_types:
-            values = [
-                st.value if isinstance(st, SourceType) else str(st)
-                for st in source_types
-            ]
+            values = [st.value if isinstance(st, SourceType) else str(st) for st in source_types]
             if len(values) == 1:
                 must_conditions.append(
                     models.FieldCondition(

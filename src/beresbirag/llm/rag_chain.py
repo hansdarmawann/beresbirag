@@ -29,7 +29,9 @@ from beresbirag.models.schemas import (
     RAGResponse,
     RetrievalResult,
 )
-from beresbirag.retrieval.formatting import format_context_blocks as _retrieval_format_context_blocks
+from beresbirag.retrieval.formatting import (
+    format_context_blocks as _retrieval_format_context_blocks,
+)
 from beresbirag.retrieval.query_router import QueryPlan
 
 
@@ -258,9 +260,7 @@ class BSBRAGPipeline:
         retrieval_ms = max(0.0, float(getattr(prepared, "retrieval_ms", 0.0)))
         prepared_at = float(getattr(prepared, "prepared_at", 0.0))
         generation_ms = (
-            max(0.0, round((now - prepared_at) * 1000.0, 2))
-            if prepared_at > 0.0
-            else 0.0
+            max(0.0, round((now - prepared_at) * 1000.0, 2)) if prepared_at > 0.0 else 0.0
         )
         total_ms = round(retrieval_ms + generation_ms, 2)
 

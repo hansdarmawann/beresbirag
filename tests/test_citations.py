@@ -117,7 +117,9 @@ def test_scripture_citation_classification() -> None:
 
 
 def test_multi_reference_and_fabricated_segments() -> None:
-    report = validate_citations("[Genesis 1:1; John 3:16] [Genesis 1:2; Revelation 99:99]", [GEN_1_1_5])
+    report = validate_citations(
+        "[Genesis 1:1; John 3:16] [Genesis 1:2; Revelation 99:99]", [GEN_1_1_5]
+    )
     assert report.partial == ["Genesis 1:1; John 3:16", "Genesis 1:2; Revelation 99:99"]
     both = validate_citations("[Genesis 1:1; John 3:16]", [GEN_1_1_5, JHN_3_16])
     assert both.valid == ["Genesis 1:1; John 3:16"]

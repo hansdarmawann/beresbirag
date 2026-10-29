@@ -55,7 +55,9 @@ def _case_books(cases: Iterable[RetrievalCase]) -> set[str]:
     books: set[str] = set()
     for case in cases:
         exp = case.expected
-        books.update(ref.split(" ", 1)[0].upper() for ref in [*exp.verse_refs_any, *exp.verse_refs_all])
+        books.update(
+            ref.split(" ", 1)[0].upper() for ref in [*exp.verse_refs_any, *exp.verse_refs_all]
+        )
         if exp.book_code:
             books.add(exp.book_code.upper())
     return books & set(BSB_VERSE_COUNTS)
@@ -75,7 +77,9 @@ def build_corpus_index(
         settings.concordance_xlsx_file,
     ):
         if not path.is_file():
-            raise FileNotFoundError(f"Raw BSB file required for case verification is missing: {path}")
+            raise FileNotFoundError(
+                f"Raw BSB file required for case verification is missing: {path}"
+            )
 
     books = _case_books(retrieval_cases)
     topics_needed = {c.expected.topic.lower() for c in retrieval_cases if c.expected.topic}
@@ -116,7 +120,9 @@ def _verify_retrieval_case(case: RetrievalCase, corpus: CorpusIndex) -> list[str
     exp = case.expected
     problems: list[str] = []
     refs = [*exp.verse_refs_any, *exp.verse_refs_all]
-    problems.extend(f"verse key {ref!r} does not exist" for ref in refs if not verse_key_exists(ref))
+    problems.extend(
+        f"verse key {ref!r} does not exist" for ref in refs if not verse_key_exists(ref)
+    )
     if exp.book_code and exp.book_code.upper() not in BSB_VERSE_COUNTS:
         problems.append(f"book code {exp.book_code!r} does not exist")
     if exp.topic and exp.topic.lower() not in corpus.topics:
@@ -181,7 +187,9 @@ def verify_cases(
     """Return one issue per unsatisfiable expectation (empty list = every case is grounded)."""
     issues: list[VerificationIssue] = []
     for case in retrieval_cases:
-        issues.extend(VerificationIssue(case.id, msg) for msg in _verify_retrieval_case(case, corpus))
+        issues.extend(
+            VerificationIssue(case.id, msg) for msg in _verify_retrieval_case(case, corpus)
+        )
     for case in answer_cases:
         issues.extend(VerificationIssue(case.id, msg) for msg in _verify_answer_case(case, corpus))
     return issues

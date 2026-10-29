@@ -182,9 +182,7 @@ def main() -> None:
 
         # Model selection
         installed_ollama = (
-            fetch_installed_ollama_models(settings)
-            if selected_provider == "ollama"
-            else []
+            fetch_installed_ollama_models(settings) if selected_provider == "ollama" else []
         )
         avail_models = model_options(selected_provider, settings, installed_ollama)
 

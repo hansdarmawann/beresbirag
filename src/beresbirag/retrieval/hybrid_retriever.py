@@ -123,7 +123,9 @@ class BSBHybridRetriever:
     # ---------------------------------------------------------------- retrieval
     def fetch_exact_matches(self, plan: QueryPlan) -> list[RetrievalResult]:
         """Deterministically scroll Qdrant for chunks whose payload matches the plan exactly."""
-        if not (plan.has_exact_targets or (QueryIntent.OUTLINE in plan.intents and plan.book_codes)):
+        if not (
+            plan.has_exact_targets or (QueryIntent.OUTLINE in plan.intents and plan.book_codes)
+        ):
             return []
         exact: list[RetrievalResult] = []
         for flt in self._exact_filters(plan):
@@ -238,4 +240,3 @@ class BSBLangChainRetriever(BaseRetriever):
             )
             documents.append(doc)
         return documents
-

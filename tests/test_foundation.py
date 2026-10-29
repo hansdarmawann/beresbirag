@@ -136,7 +136,9 @@ def test_rag_response_and_verse_range_models() -> None:
     assert vr.expanded_refs == ["JHN 3:16"]
 
     meta = ChunkMetadata(chunk_id="scripture:JHN:3:16:0", source_type=SourceType.SCRIPTURE)
-    doc = ChunkDocument(chunk_id=meta.chunk_id, text="[John 3:16] For God so loved...", metadata=meta)
+    doc = ChunkDocument(
+        chunk_id=meta.chunk_id, text="[John 3:16] For God so loved...", metadata=meta
+    )
     rr = RetrievalResult(chunk=doc, score=0.92, rerank_score=0.98, rank=1)
     cit = CitationItem(
         chunk_id=doc.chunk_id,

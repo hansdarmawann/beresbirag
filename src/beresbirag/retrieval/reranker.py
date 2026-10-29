@@ -137,8 +137,13 @@ class PassageReranker:
             cache_dir = _default_cache_dir(self.settings)
             # FlashRank has no local_files_only flag and downloads missing model
             # directories even when HF_HUB_OFFLINE is set.
-            if self.settings.offline_mode and not (Path(cache_dir) / self.settings.reranker_model).is_dir():
-                raise FileNotFoundError("Offline FlashRank cache missing; run scripts/prefetch_models.py online first")
+            if (
+                self.settings.offline_mode
+                and not (Path(cache_dir) / self.settings.reranker_model).is_dir()
+            ):
+                raise FileNotFoundError(
+                    "Offline FlashRank cache missing; run scripts/prefetch_models.py online first"
+                )
             self._ranker = Ranker(
                 model_name=self.settings.reranker_model,
                 cache_dir=cache_dir,
@@ -150,7 +155,9 @@ class PassageReranker:
             return None
         return self._ranker
 
-    def _cross_encoder_scores(self, query: str, results: list[RetrievalResult]) -> list[float] | None:
+    def _cross_encoder_scores(
+        self, query: str, results: list[RetrievalResult]
+    ) -> list[float] | None:
         ranker = self.ranker
         if ranker is None:
             return None

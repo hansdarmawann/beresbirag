@@ -316,9 +316,7 @@ def test_query_stream_sse_events_and_timings_and_request_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_retriever = FakeRetriever()
-    fake_llm = FakeListChatModel(
-        responses=["In the beginning God created [Genesis 1:1]."]
-    )
+    fake_llm = FakeListChatModel(responses=["In the beginning God created [Genesis 1:1]."])
     monkeypatch.setattr(api_mod, "build_retriever", lambda s: fake_retriever)
     monkeypatch.setattr(
         api_mod,
@@ -385,4 +383,3 @@ def test_query_stream_sse_events_and_timings_and_request_id(
         done_payload = events[-1][1]
         assert "Genesis 1:1" in done_payload["answer"]
         assert done_payload["timings"]["total_ms"] >= 0.0
-

@@ -127,7 +127,9 @@ def _classify(content: str, results: list[RetrievalResult]) -> _Classified:
         if _looks_like_scripture(segment) and not extract_bible_references(segment)
     )
     if not refs:
-        return _Classified("unsupported" if fabricated or _looks_like_scripture(content) else "unparsed")
+        return _Classified(
+            "unsupported" if fabricated or _looks_like_scripture(content) else "unparsed"
+        )
 
     retrieved_keys = {key.upper() for r in results for key in r.chunk.metadata.verse_refs}
     statuses: list[CitationStatus] = ["unsupported"] * fabricated

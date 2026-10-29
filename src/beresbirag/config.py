@@ -44,7 +44,9 @@ class Settings(BaseSettings):
     )
 
     # LLM Provider & Minimal-Effort Settings
-    llm_provider: Literal["openai", "anthropic", "ollama"] = Field(default="openai", alias="LLM_PROVIDER")
+    llm_provider: Literal["openai", "anthropic", "ollama"] = Field(
+        default="openai", alias="LLM_PROVIDER"
+    )
     # None/empty = provider default (see beresbirag.llm.factory.DEFAULT_MODELS)
     llm_model: str | None = Field(default=None, alias="LLM_MODEL")
     llm_effort: Literal["minimal", "low", "medium", "high"] = Field(
@@ -55,7 +57,9 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
 
-    resource_profile: Literal["standard", "low"] = Field(default="standard", alias="RESOURCE_PROFILE")
+    resource_profile: Literal["standard", "low"] = Field(
+        default="standard", alias="RESOURCE_PROFILE"
+    )
     offline_mode: bool = Field(default=False, alias="OFFLINE_MODE")
     ollama_base_url: str = Field(default="http://localhost:11434", alias="OLLAMA_BASE_URL")
     llm_num_ctx: int = Field(default=4096, ge=1, alias="LLM_NUM_CTX")
@@ -78,14 +82,10 @@ class Settings(BaseSettings):
     fastembed_dense_model: str = Field(
         default="BAAI/bge-small-en-v1.5", alias="FASTEMBED_DENSE_MODEL"
     )
-    fastembed_sparse_model: str = Field(
-        default="Qdrant/bm25", alias="FASTEMBED_SPARSE_MODEL"
-    )
+    fastembed_sparse_model: str = Field(default="Qdrant/bm25", alias="FASTEMBED_SPARSE_MODEL")
 
     # Qdrant Vector Database Settings
-    qdrant_mode: Literal["memory", "local", "remote"] = Field(
-        default="remote", alias="QDRANT_MODE"
-    )
+    qdrant_mode: Literal["memory", "local", "remote"] = Field(default="remote", alias="QDRANT_MODE")
     qdrant_url: str = Field(default="http://localhost:6333", alias="QDRANT_URL")
     qdrant_api_key: str = Field(default="", alias="QDRANT_API_KEY")
     qdrant_local_path: str = Field(default="./qdrant_storage", alias="QDRANT_LOCAL_PATH")
@@ -93,31 +93,19 @@ class Settings(BaseSettings):
 
     # Reranker & Retrieval Settings
     reranker_enabled: bool = Field(default=True, alias="RERANKER_ENABLED")
-    reranker_model: str = Field(
-        default="ms-marco-MiniLM-L-12-v2", alias="RERANKER_MODEL"
-    )
+    reranker_model: str = Field(default="ms-marco-MiniLM-L-12-v2", alias="RERANKER_MODEL")
     retrieval_initial_k: int = Field(default=25, ge=1, le=200, alias="RETRIEVAL_INITIAL_K")
     retrieval_top_k: int = Field(default=6, ge=1, le=50, alias="RETRIEVAL_TOP_K")
 
     # API Concurrency, Auth, Limits & Observability Settings
-    max_concurrent_requests: int = Field(
-        default=4, ge=1, alias="MAX_CONCURRENT_REQUESTS"
-    )
-    queue_timeout_s: float = Field(
-        default=30.0, gt=0.0, alias="QUEUE_TIMEOUT_S"
-    )
+    max_concurrent_requests: int = Field(default=4, ge=1, alias="MAX_CONCURRENT_REQUESTS")
+    queue_timeout_s: float = Field(default=30.0, gt=0.0, alias="QUEUE_TIMEOUT_S")
     api_keys: str = Field(default="", alias="API_KEYS")
-    rate_limit_per_minute: int = Field(
-        default=30, ge=0, alias="RATE_LIMIT_PER_MINUTE"
-    )
+    rate_limit_per_minute: int = Field(default=30, ge=0, alias="RATE_LIMIT_PER_MINUTE")
     allowed_models: str = Field(default="", alias="ALLOWED_MODELS")
-    max_query_chars: int = Field(
-        default=1000, ge=1, alias="MAX_QUERY_CHARS"
-    )
+    max_query_chars: int = Field(default=1000, ge=1, alias="MAX_QUERY_CHARS")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
-    log_format: Literal["text", "json"] = Field(
-        default="text", alias="LOG_FORMAT"
-    )
+    log_format: Literal["text", "json"] = Field(default="text", alias="LOG_FORMAT")
 
     # UI & Feedback Settings
     feedback_dir: str = Field(default="./feedback", alias="FEEDBACK_DIR")
@@ -141,9 +129,14 @@ class Settings(BaseSettings):
         explicit = self.model_fields_set.copy()
         if self.resource_profile == "low":
             defaults = {
-                "llm_num_ctx": 3072, "llm_num_predict": 384, "llm_num_thread": 2,
-                "context_token_budget": 1600, "context_chunk_token_cap": 400,
-                "fast_path_enabled": True, "retrieval_top_k": 3, "retrieval_initial_k": 10,
+                "llm_num_ctx": 3072,
+                "llm_num_predict": 384,
+                "llm_num_thread": 2,
+                "context_token_budget": 1600,
+                "context_chunk_token_cap": 400,
+                "fast_path_enabled": True,
+                "retrieval_top_k": 3,
+                "retrieval_initial_k": 10,
                 "reranker_model": "ms-marco-TinyBERT-L-2-v2",
                 "max_concurrent_requests": 1,
             }

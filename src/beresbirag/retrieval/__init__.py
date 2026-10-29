@@ -42,4 +42,3 @@ __all__ = [
     "route_query",
     "verse_count",
 ]
-

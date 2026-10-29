@@ -121,9 +121,7 @@ def export_snapshot(out: Annotated[Path, typer.Option("--out")]) -> None:
             "index_metadata": index_meta or embedding_metadata(settings),
             "created_at": datetime.now(UTC).isoformat(),
         }
-        Path(str(out) + ".json").write_text(
-            json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
-        )
+        Path(str(out) + ".json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         typer.echo(f"Exported {points} points to {out}")
     except Exception as exc:
         typer.echo(str(exc), err=True)

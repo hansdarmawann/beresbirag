@@ -31,12 +31,44 @@ BSB_BOOKS: tuple[BookInfo, ...] = (
     BookInfo("JOS", "Joshua", "Jos", "OT", 6, ("Josh", "Jsh")),
     BookInfo("JDG", "Judges", "Jdg", "OT", 7, ("Judg", "Jg", "Jdgs")),
     BookInfo("RUT", "Ruth", "Rut", "OT", 8, ("Rth", "Ru")),
-    BookInfo("1SA", "1 Samuel", "1Sa", "OT", 9, ("1 Sam", "1Sam", "1 Sm", "1S", "I Samuel", "I Sam")),
-    BookInfo("2SA", "2 Samuel", "2Sa", "OT", 10, ("2 Sam", "2Sam", "2 Sm", "2S", "II Samuel", "II Sam")),
-    BookInfo("1KI", "1 Kings", "1Ki", "OT", 11, ("1 Kgs", "1Kgs", "1 Kin", "1Kin", "1K", "I Kings", "I Kgs")),
-    BookInfo("2KI", "2 Kings", "2Ki", "OT", 12, ("2 Kgs", "2Kgs", "2 Kin", "2Kin", "2K", "II Kings", "II Kgs")),
-    BookInfo("1CH", "1 Chronicles", "1Ch", "OT", 13, ("1 Chr", "1Chr", "1 Chron", "1Chron", "I Chronicles", "I Chr")),
-    BookInfo("2CH", "2 Chronicles", "2Ch", "OT", 14, ("2 Chr", "2Chr", "2 Chron", "2Chron", "II Chronicles", "II Chr")),
+    BookInfo(
+        "1SA", "1 Samuel", "1Sa", "OT", 9, ("1 Sam", "1Sam", "1 Sm", "1S", "I Samuel", "I Sam")
+    ),
+    BookInfo(
+        "2SA", "2 Samuel", "2Sa", "OT", 10, ("2 Sam", "2Sam", "2 Sm", "2S", "II Samuel", "II Sam")
+    ),
+    BookInfo(
+        "1KI",
+        "1 Kings",
+        "1Ki",
+        "OT",
+        11,
+        ("1 Kgs", "1Kgs", "1 Kin", "1Kin", "1K", "I Kings", "I Kgs"),
+    ),
+    BookInfo(
+        "2KI",
+        "2 Kings",
+        "2Ki",
+        "OT",
+        12,
+        ("2 Kgs", "2Kgs", "2 Kin", "2Kin", "2K", "II Kings", "II Kgs"),
+    ),
+    BookInfo(
+        "1CH",
+        "1 Chronicles",
+        "1Ch",
+        "OT",
+        13,
+        ("1 Chr", "1Chr", "1 Chron", "1Chron", "I Chronicles", "I Chr"),
+    ),
+    BookInfo(
+        "2CH",
+        "2 Chronicles",
+        "2Ch",
+        "OT",
+        14,
+        ("2 Chr", "2Chr", "2 Chron", "2Chron", "II Chronicles", "II Chr"),
+    ),
     BookInfo("EZR", "Ezra", "Ezr", "OT", 15, ("Ez",)),
     BookInfo("NEH", "Nehemiah", "Neh", "OT", 16, ("Ne",)),
     BookInfo("EST", "Esther", "Est", "OT", 17, ("Esth", "Es")),
@@ -44,7 +76,14 @@ BSB_BOOKS: tuple[BookInfo, ...] = (
     BookInfo("PSA", "Psalms", "Psa", "OT", 19, ("Psalm", "Ps", "Pss", "Pslm")),
     BookInfo("PRO", "Proverbs", "Pro", "OT", 20, ("Prov", "Prv", "Pr")),
     BookInfo("ECC", "Ecclesiastes", "Ecc", "OT", 21, ("Eccl", "Eccles", "Ec", "Qoh")),
-    BookInfo("SNG", "Song of Solomon", "Sng", "OT", 22, ("Song", "Song of Songs", "SOS", "SoS", "Cant", "Canticles")),
+    BookInfo(
+        "SNG",
+        "Song of Solomon",
+        "Sng",
+        "OT",
+        22,
+        ("Song", "Song of Songs", "SOS", "SoS", "Cant", "Canticles"),
+    ),
     BookInfo("ISA", "Isaiah", "Isa", "OT", 23, ("Is",)),
     BookInfo("JER", "Jeremiah", "Jer", "OT", 24, ("Je", "Jr")),
     BookInfo("LAM", "Lamentations", "Lam", "OT", 25, ("La",)),
@@ -70,13 +109,19 @@ BSB_BOOKS: tuple[BookInfo, ...] = (
     BookInfo("ACT", "Acts", "Act", "NT", 44, ("Ac", "Acts of the Apostles")),
     BookInfo("ROM", "Romans", "Rom", "NT", 45, ("Ro", "Rm")),
     BookInfo("1CO", "1 Corinthians", "1Co", "NT", 46, ("1 Cor", "1Cor", "I Corinthians", "I Cor")),
-    BookInfo("2CO", "2 Corinthians", "2Co", "NT", 47, ("2 Cor", "2Cor", "II Corinthians", "II Cor")),
+    BookInfo(
+        "2CO", "2 Corinthians", "2Co", "NT", 47, ("2 Cor", "2Cor", "II Corinthians", "II Cor")
+    ),
     BookInfo("GAL", "Galatians", "Gal", "NT", 48, ("Ga",)),
     BookInfo("EPH", "Ephesians", "Eph", "NT", 49, ("Ep",)),
     BookInfo("PHP", "Philippians", "Php", "NT", 50, ("Phil", "Pp")),
     BookInfo("COL", "Colossians", "Col", "NT", 51, ("Co",)),
-    BookInfo("1TH", "1 Thessalonians", "1Th", "NT", 52, ("1 Thess", "1Thess", "1 Th", "I Thessalonians")),
-    BookInfo("2TH", "2 Thessalonians", "2Th", "NT", 53, ("2 Thess", "2Thess", "2 Th", "II Thessalonians")),
+    BookInfo(
+        "1TH", "1 Thessalonians", "1Th", "NT", 52, ("1 Thess", "1Thess", "1 Th", "I Thessalonians")
+    ),
+    BookInfo(
+        "2TH", "2 Thessalonians", "2Th", "NT", 53, ("2 Thess", "2Thess", "2 Th", "II Thessalonians")
+    ),
     BookInfo("1TI", "1 Timothy", "1Ti", "NT", 54, ("1 Tim", "1Tim", "1 Ti", "I Timothy")),
     BookInfo("2TI", "2 Timothy", "2Ti", "NT", 55, ("2 Tim", "2Tim", "2 Ti", "II Timothy")),
     BookInfo("TIT", "Titus", "Tit", "NT", 56, ("Ti",)),
@@ -86,8 +131,12 @@ BSB_BOOKS: tuple[BookInfo, ...] = (
     BookInfo("1PE", "1 Peter", "1Pe", "NT", 60, ("1 Pet", "1Pet", "1 Pt", "1Pt", "I Peter")),
     BookInfo("2PE", "2 Peter", "2Pe", "NT", 61, ("2 Pet", "2Pet", "2 Pt", "2Pt", "II Peter")),
     BookInfo("1JN", "1 John", "1Jn", "NT", 62, ("1 Jo", "1Jo", "1 Joh", "1Joh", "1John", "I John")),
-    BookInfo("2JN", "2 John", "2Jn", "NT", 63, ("2 Jo", "2Jo", "2 Joh", "2Joh", "2John", "II John")),
-    BookInfo("3JN", "3 John", "3Jn", "NT", 64, ("3 Jo", "3Jo", "3 Joh", "3Joh", "3John", "III John")),
+    BookInfo(
+        "2JN", "2 John", "2Jn", "NT", 63, ("2 Jo", "2Jo", "2 Joh", "2Joh", "2John", "II John")
+    ),
+    BookInfo(
+        "3JN", "3 John", "3Jn", "NT", 64, ("3 Jo", "3Jo", "3 Joh", "3Joh", "3John", "III John")
+    ),
     BookInfo("JUD", "Jude", "Jud", "NT", 65, ("Jd",)),
     BookInfo("REV", "Revelation", "Rev", "NT", 66, ("Re", "The Revelation", "Apocalypse")),
 )

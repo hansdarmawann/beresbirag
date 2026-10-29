@@ -92,9 +92,7 @@ class MockRetriever:
         self._results = results
         self._intent = intent
 
-    def retrieve(
-        self, query: str, top_k: int = 6
-    ) -> tuple[MockPlan, list[RetrievalResult]]:
+    def retrieve(self, query: str, top_k: int = 6) -> tuple[MockPlan, list[RetrievalResult]]:
         return MockPlan(intent=self._intent), self._results[:top_k]
 
 
@@ -146,17 +144,13 @@ def test_create_chat_model_openai_reasoning() -> None:
 
 def test_create_chat_model_anthropic() -> None:
     settings = Settings(anthropic_api_key="test-key-anthropic")
-    model = create_chat_model(
-        provider="anthropic", effort="minimal", settings=settings
-    )
+    model = create_chat_model(provider="anthropic", effort="minimal", settings=settings)
     assert isinstance(model, ChatAnthropic)
     assert model.model == "claude-haiku-5-5"
     assert model.temperature == 0.0
     assert model.max_tokens == 1024
 
-    model_high = create_chat_model(
-        provider="anthropic", effort="high", settings=settings
-    )
+    model_high = create_chat_model(provider="anthropic", effort="high", settings=settings)
     assert isinstance(model_high, ChatAnthropic)
     assert model_high.max_tokens == 4096
 
@@ -174,9 +168,7 @@ def test_create_chat_model_invalid_provider() -> None:
 def test_prompt_template_structure() -> None:
     assert "Berean Standard Bible" in SYSTEM_PROMPT
     assert "Strict Grounding & Citation Rules" in SYSTEM_PROMPT
-    rendered = BSB_RAG_PROMPT.format(
-        context="Sample context", question="What was created?"
-    )
+    rendered = BSB_RAG_PROMPT.format(context="Sample context", question="What was created?")
     assert "Sample context" in rendered
     assert "What was created?" in rendered
 
@@ -185,7 +177,10 @@ def test_format_context_blocks(sample_results: list[RetrievalResult]) -> None:
     formatted = format_context_blocks(sample_results)
     assert "=== SOURCE [1] | Reference: Genesis 1:1 | Type: scripture ===" in formatted
     assert "In the beginning God created" in formatted
-    assert "=== SOURCE [2] | Reference: BSB Book Outline: Genesis | Type: book_outline ===" in formatted
+    assert (
+        "=== SOURCE [2] | Reference: BSB Book Outline: Genesis | Type: book_outline ==="
+        in formatted
+    )
 
     empty_formatted = format_context_blocks([])
     assert "No relevant context found" in empty_formatted
@@ -258,9 +253,7 @@ def test_fastapi_endpoints(sample_results: list[RetrievalResult]) -> None:
         return BSBRAGPipeline(retriever=retriever, llm=fake_llm)
 
     fastapi_app.dependency_overrides[get_api_retriever] = lambda: retriever
-    fastapi_app.dependency_overrides[get_pipeline_factory] = (
-        lambda: mock_pipeline_factory
-    )
+    fastapi_app.dependency_overrides[get_pipeline_factory] = lambda: mock_pipeline_factory
 
     with TestClient(fastapi_app) as client:
         # 1. GET /health
@@ -269,15 +262,11 @@ def test_fastapi_endpoints(sample_results: list[RetrievalResult]) -> None:
         assert res_health.json() == {"status": "ok", "collection": "bsb_rag"}
 
         # 2. POST /retrieve
-        res_retrieve = client.post(
-            "/retrieve", json={"query": "Genesis 1:1", "top_k": 2}
-        )
+        res_retrieve = client.post("/retrieve", json={"query": "Genesis 1:1", "top_k": 2})
         assert res_retrieve.status_code == 200
         data_retrieve = res_retrieve.json()
         assert len(data_retrieve) == 2
-        assert (
-            data_retrieve[0]["chunk"]["metadata"]["canonical_ref"] == "Genesis 1:1"
-        )
+        assert data_retrieve[0]["chunk"]["metadata"]["canonical_ref"] == "Genesis 1:1"
 
         # 3. POST /query
         res_query = client.post(

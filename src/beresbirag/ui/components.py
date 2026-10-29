@@ -52,17 +52,11 @@ def render_citation_report(
     """Render valid, partial, and unsupported citation counts as colored chips, plus strict warnings."""
     if report is None:
         return
-    parsed = (
-        CitationReport.model_validate(report)
-        if isinstance(report, dict)
-        else report
-    )
+    parsed = CitationReport.model_validate(report) if isinstance(report, dict) else report
     valid_count = len(parsed.valid)
     partial_count = len(parsed.partial)
     unsupported_count = len(parsed.unsupported)
-    unsupported_suffix = (
-        f" ({', '.join(parsed.unsupported)})" if parsed.unsupported else ""
-    )
+    unsupported_suffix = f" ({', '.join(parsed.unsupported)})" if parsed.unsupported else ""
 
     chips_html = (
         '<div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0;">'
@@ -79,9 +73,7 @@ def render_citation_report(
     )
     st.markdown(chips_html, unsafe_allow_html=True)
 
-    mode_str = (
-        answer_mode.value if hasattr(answer_mode, "value") else str(answer_mode or "")
-    )
+    mode_str = answer_mode.value if hasattr(answer_mode, "value") else str(answer_mode or "")
     if citation_policy == "strict" and (
         unsupported_count > 0 or mode_str == AnswerMode.INSUFFICIENT_CONTEXT.value
     ):
@@ -99,9 +91,7 @@ def render_citations_table(citations: list[CitationItem]) -> None:
     table_data = []
     for idx, cit in enumerate(citations, start=1):
         src_val = (
-            cit.source_type.value
-            if hasattr(cit.source_type, "value")
-            else str(cit.source_type)
+            cit.source_type.value if hasattr(cit.source_type, "value") else str(cit.source_type)
         )
         ref_label = f"★ {cit.canonical_ref}" if cit.used else cit.canonical_ref
         table_data.append(
@@ -130,14 +120,10 @@ def render_retrieved_chunks(results: list[RetrievalResult]) -> None:
         meta = res.chunk.metadata
         ref = meta.canonical_ref or res.chunk.chunk_id
         src_type = (
-            meta.source_type.value
-            if hasattr(meta.source_type, "value")
-            else str(meta.source_type)
+            meta.source_type.value if hasattr(meta.source_type, "value") else str(meta.source_type)
         )
         score_val = (
-            f"{res.rerank_score:.3f}"
-            if res.rerank_score is not None
-            else f"{res.score:.3f}"
+            f"{res.rerank_score:.3f}" if res.rerank_score is not None else f"{res.score:.3f}"
         )
         title = f"#{res.rank} · {ref} · {src_type} · {score_val}"
 

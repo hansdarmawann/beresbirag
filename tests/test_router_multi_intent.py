@@ -133,7 +133,9 @@ def test_single_intent_sources_are_unchanged(query: str, intent: QueryIntent) ->
 
 
 def _chunk(chunk_id: str, text: str, **meta) -> ChunkDocument:
-    return ChunkDocument(chunk_id=chunk_id, text=text, metadata=ChunkMetadata(chunk_id=chunk_id, **meta))
+    return ChunkDocument(
+        chunk_id=chunk_id, text=text, metadata=ChunkMetadata(chunk_id=chunk_id, **meta)
+    )
 
 
 @pytest.fixture()
@@ -153,45 +155,65 @@ def retriever() -> BSBHybridRetriever:
             _chunk(
                 "scripture:1JN:4:7-8:0",
                 "[1 John 4:7] Beloved, let us love one another, because love comes from God.",
-                source_type=S.SCRIPTURE, book_code="1JN", chapter=4, verse_start=7, verse_end=8,
-                canonical_ref="1 John 4:7-8", verse_refs=["1JN 4:7", "1JN 4:8"],
+                source_type=S.SCRIPTURE,
+                book_code="1JN",
+                chapter=4,
+                verse_start=7,
+                verse_end=8,
+                canonical_ref="1 John 4:7-8",
+                verse_refs=["1JN 4:7", "1JN 4:8"],
             ),
             _chunk(
                 "scripture:JHN:15:12-13:0",
                 "[John 15:12] Love one another as I have loved you. Greater love has no one.",
-                source_type=S.SCRIPTURE, book_code="JHN", chapter=15, verse_start=12,
-                verse_end=13, canonical_ref="John 15:12-13", verse_refs=["JHN 15:12", "JHN 15:13"],
+                source_type=S.SCRIPTURE,
+                book_code="JHN",
+                chapter=15,
+                verse_start=12,
+                verse_end=13,
+                canonical_ref="John 15:12-13",
+                verse_refs=["JHN 15:12", "JHN 15:13"],
             ),
             _chunk(
                 "scripture:REV:13:16-18:0",
                 "[Revelation 13:18] Let the one who has insight calculate the number of the "
                 "beast, for it is the number of a man, and that number is 666.",
-                source_type=S.SCRIPTURE, book_code="REV", chapter=13, verse_start=16,
-                verse_end=18, canonical_ref="Revelation 13:16-18",
+                source_type=S.SCRIPTURE,
+                book_code="REV",
+                chapter=13,
+                verse_start=16,
+                verse_end=18,
+                canonical_ref="Revelation 13:16-18",
                 verse_refs=["REV 13:16", "REV 13:17", "REV 13:18"],
             ),
             _chunk(
                 "topical:666:0",
                 "[Source: BSB Topical Index | Topic: 666] Revelation 13:16-18",
-                source_type=S.TOPICAL_INDEX, canonical_ref="Topical Index: 666", topic="666",
+                source_type=S.TOPICAL_INDEX,
+                canonical_ref="Topical Index: 666",
+                topic="666",
                 verse_refs=["REV 13:16", "REV 13:17", "REV 13:18"],
             ),
             _chunk(
                 "topical:Loving%20Others:0",
                 "[Source: BSB Topical Index | Topic: Loving Others] love one another",
-                source_type=S.TOPICAL_INDEX, canonical_ref="Topical Index: Loving Others",
+                source_type=S.TOPICAL_INDEX,
+                canonical_ref="Topical Index: Loving Others",
                 topic="loving others",
             ),
             _chunk(
                 "concordance:love:0",
                 '[Source: BSB Concordance | Headword: "love"] love love love',
-                source_type=S.CONCORDANCE, canonical_ref="Concordance: love (373 Occurrences)",
+                source_type=S.CONCORDANCE,
+                canonical_ref="Concordance: love (373 Occurrences)",
                 concordance_word="love",
             ),
             _chunk(
                 "outline:REV:overview",
                 "[Source: BSB Book Outline | Book: Revelation (REV)] The Letters to the Seven Churches",
-                source_type=S.BOOK_OUTLINE, book_code="REV", canonical_ref="Revelation Outline (1:1-22:21)",
+                source_type=S.BOOK_OUTLINE,
+                book_code="REV",
+                canonical_ref="Revelation Outline (1:1-22:21)",
             ),
         ]  # fmt: skip
     )

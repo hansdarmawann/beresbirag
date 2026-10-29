@@ -34,11 +34,7 @@ from beresbirag.ui.services import (
 )
 
 APP_PATH = str(
-    Path(__file__).resolve().parent.parent
-    / "src"
-    / "beresbirag"
-    / "ui"
-    / "streamlit_app.py"
+    Path(__file__).resolve().parent.parent / "src" / "beresbirag" / "ui" / "streamlit_app.py"
 )
 
 
@@ -78,7 +74,9 @@ def _make_sample_chunks() -> list[RetrievalResult]:
 
 
 class FakeRetriever:
-    def __init__(self, results: list[RetrievalResult] | None = None, should_fail: bool = False) -> None:
+    def __init__(
+        self, results: list[RetrievalResult] | None = None, should_fail: bool = False
+    ) -> None:
         self.results = results if results is not None else _make_sample_chunks()
         self.should_fail = should_fail
         self.called_with: list[tuple[str, int]] = []
@@ -364,4 +362,3 @@ def test_cli_ui_launcher_streamlit_missing(monkeypatch: pytest.MonkeyPatch) -> N
         assert result.exit_code == 1
         assert "Streamlit is not installed" in result.output
         assert "pip install" in result.output
-
