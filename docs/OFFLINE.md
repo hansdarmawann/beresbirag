@@ -184,3 +184,11 @@ Benchmark `qwen2.5:0.5b`, `qwen2.5:1.5b`, `llama3.2:1b`, `gemma3:1b`, and
 tokens, citation accuracy and unsupported-answer behavior. The 4 GB target,
 real Ollama inference and snapshot round trip require hardware/service testing;
 the automated acceptance suite uses fakes and never downloads models.
+
+## Running the UI on a 4 GB machine
+
+When running the Streamlit interface on a resource-constrained 4 GB device:
+- Use one browser tab and close other applications to conserve memory.
+- Prefer **Retrieve only (no LLM)** mode for instant scripture reference lookups, and switch to LLM mode when summary synthesis is required.
+- The first load takes longer due to local model warm-up (FastEmbed, BM25, and FlashRank caches).
+- Keep the server host at 127.0.0.1 (local loopback only) for security and resource efficiency.
