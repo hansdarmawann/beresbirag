@@ -12,12 +12,17 @@ from qdrant_client import models
 
 from beresbirag.config import Settings, get_settings
 from beresbirag.models.schemas import QueryIntent, RetrievalResult, SourceType, VerseRange
-from beresbirag.retrieval.query_router import ALL_SOURCES, QueryPlan, route_query
+from beresbirag.retrieval.query_router import ALL_SOURCES, INTENT_SOURCES, QueryPlan, route_query
 from beresbirag.retrieval.reference_parser import MAX_EXPANDED_REFS
 from beresbirag.retrieval.reranker import PassageReranker, deduplicate_results
 from beresbirag.vectorstore.qdrant_manager import QdrantManager
 
 MAX_CHAPTER_FILTERS = 10
+
+# Sources whose chunks carry a book_code and can therefore be scoped to mentioned books.
+BOOK_SCOPED_SOURCES: frozenset[SourceType] = frozenset(
+    {SourceType.SCRIPTURE, SourceType.BOOK_OUTLINE}
+)
 
 
 def _topic_variants(topic: str) -> list[str]:
@@ -82,22 +87,42 @@ class BSBHybridRetriever:
                 flt = build(source_types=[SourceType.TOPICAL_INDEX], topic=topic)
                 if flt is not None:
                     filters.append(flt)
-        if plan.intent == QueryIntent.OUTLINE and plan.book_codes:
+        if QueryIntent.OUTLINE in plan.intents and plan.book_codes:
             flt = build(source_types=[SourceType.BOOK_OUTLINE], book_codes=plan.book_codes)
             if flt is not None:
                 filters.append(flt)
         return filters
 
     def _hybrid_filter(self, plan: QueryPlan) -> models.Filter | None:
-        """Restrict hybrid search to the plan's target sources (and books for exact passages)."""
-        sources = None if set(plan.target_sources) >= set(ALL_SOURCES) else plan.target_sources
-        book_codes = plan.book_codes if plan.intent == QueryIntent.EXACT_PASSAGE else None
-        return self.qdrant_manager.build_filter(source_types=sources, book_codes=book_codes)
+        """Restrict hybrid search to the plan's target sources, book-scoping where possible.
+
+        With book codes, scripture/outline chunks must belong to those books while the other
+        target sources (topical index, concordance) stay searchable in a second `should` branch.
+        """
+        build = self.qdrant_manager.build_filter
+        targets = list(plan.target_sources)
+        if not plan.book_codes:
+            sources = None if set(targets) >= set(ALL_SOURCES) else targets
+            return build(source_types=sources)
+
+        scoped = [src for src in targets if src in BOOK_SCOPED_SOURCES]
+        others = [src for src in targets if src not in BOOK_SCOPED_SOURCES]
+        branches = [
+            flt
+            for flt in (
+                build(source_types=scoped, book_codes=plan.book_codes) if scoped else None,
+                build(source_types=others) if others else None,
+            )
+            if flt is not None
+        ]
+        if len(branches) == 1:
+            return branches[0]
+        return models.Filter(should=branches) if branches else None
 
     # ---------------------------------------------------------------- retrieval
     def fetch_exact_matches(self, plan: QueryPlan) -> list[RetrievalResult]:
         """Deterministically scroll Qdrant for chunks whose payload matches the plan exactly."""
-        if not (plan.has_exact_targets or (plan.intent == QueryIntent.OUTLINE and plan.book_codes)):
+        if not (plan.has_exact_targets or (QueryIntent.OUTLINE in plan.intents and plan.book_codes)):
             return []
         exact: list[RetrievalResult] = []
         for flt in self._exact_filters(plan):
@@ -122,8 +147,49 @@ class BSBHybridRetriever:
             qdrant_filter=self._hybrid_filter(plan),
         )
         candidates = deduplicate_results([*exact, *hybrid])
-        ranked = self.reranker.rerank(query, candidates, plan=plan, top_k=final_k)
-        return plan, ranked
+        if not plan.secondary_intents:
+            return plan, self.reranker.rerank(query, candidates, plan=plan, top_k=final_k)
+        ranked = self.reranker.rerank(query, candidates, plan=plan)
+        return plan, self._cover_intents(plan, ranked, exact, final_k)
+
+    @staticmethod
+    def _cover_intents(
+        plan: QueryPlan,
+        ranked: list[RetrievalResult],
+        exact: list[RetrievalResult],
+        k: int,
+    ) -> list[RetrievalResult]:
+        """Keep one exact match per detected intent in the top-k of a multi-intent query.
+
+        Without this, several overlapping primary-intent chunks (e.g. scripture windows around
+        Revelation 13:18) can crowd the secondary intent's exact match out of the context.
+        Displaced results are taken from the lowest-ranked unprotected positions.
+        """
+        exact_ids = {r.chunk.chunk_id for r in exact}
+        final = ranked[:k]
+        protected: set[str] = set()
+        for intent in plan.intents:
+            source = INTENT_SOURCES[intent][0]
+
+            def _is_target(result: RetrievalResult, source: SourceType = source) -> bool:
+                return (
+                    result.chunk.metadata.source_type == source
+                    and result.chunk.chunk_id in exact_ids
+                )
+
+            present = next((r for r in final if _is_target(r)), None)
+            if present is not None:
+                protected.add(present.chunk.chunk_id)
+                continue
+            candidate = next((r for r in ranked[k:] if _is_target(r)), None)
+            victims = [i for i, r in enumerate(final) if r.chunk.chunk_id not in protected]
+            if candidate is None or not victims:
+                continue
+            final[victims[-1]] = candidate
+            protected.add(candidate.chunk.chunk_id)
+        order = {r.chunk.chunk_id: i for i, r in enumerate(ranked)}
+        final.sort(key=lambda r: order[r.chunk.chunk_id])
+        return [r.model_copy(update={"rank": i}) for i, r in enumerate(final, start=1)]
 
     # --------------------------------------------------------------- formatting
     @staticmethod

@@ -1,5 +1,11 @@
 """LLM factory, grounded prompt templates, and LCEL RAG pipeline for beresbirag."""
 
+from beresbirag.llm.citations import (
+    extract_citations,
+    parse_label,
+    strip_unsupported_citations,
+    validate_citations,
+)
 from beresbirag.llm.factory import (
     DEFAULT_MODELS,
     MissingAPIKeyError,
@@ -37,7 +43,11 @@ __all__ = [
     "USER_PROMPT_TEMPLATE",
     "build_citations",
     "create_chat_model",
+    "extract_citations",
     "format_context_blocks",
     "is_reasoning_model",
+    "parse_label",
     "resolve_llm_target",
+    "strip_unsupported_citations",
+    "validate_citations",
 ]

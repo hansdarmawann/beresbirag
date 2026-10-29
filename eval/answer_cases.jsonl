@@ -1,0 +1,32 @@
+{"id": "A01", "query": "What does John 3:16 say?", "must_cite": ["JHN 3:16"]}
+{"id": "A02", "query": "What is the significance of 666 in the BSB Topical Index and Revelation 13:18?", "must_cite": ["REV 13:18", "BSB Topical Index: 666"], "tags": ["readme", "mixed-intent"]}
+{"id": "A03", "query": "What does Genesis 1:1 say?", "must_cite": ["GEN 1:1"]}
+{"id": "A04", "query": "What footnote is given for Genesis 1:5?", "must_cite": ["GEN 1:5"], "tags": ["footnote"]}
+{"id": "A05", "query": "How many times does the word 'grace' appear in the BSB?", "must_cite": ["BSB Concordance: grace"], "tags": ["concordance"]}
+{"id": "A06", "query": "What is the outline of Romans?", "must_cite": ["BSB Book Outline: Romans"], "tags": ["outline"]}
+{"id": "A07", "query": "What does the Bible say about forgiving others?", "tags": ["implicit-topic"]}
+{"id": "A08", "query": "What does Romans 8:28 say?", "must_cite": ["ROM 8:28"]}
+{"id": "A09", "query": "Quote Philippians 4:13", "must_cite": ["PHP 4:13"]}
+{"id": "A10", "query": "What does 1 Corinthians 13:4-7 say about love?", "must_cite": ["1CO 13:4", "1CO 13:5", "1CO 13:6", "1CO 13:7"], "tags": ["range"]}
+{"id": "A11", "query": "Explain the topic of baptism in Acts 2", "must_cite": ["ACT 2:38"], "tags": ["mixed-intent"]}
+{"id": "A12", "query": "What does Revelation 21:4 promise?", "must_cite": ["REV 21:4"]}
+{"id": "A13", "query": "What does Jeremiah 29:11 say?", "must_cite": ["JER 29:11"]}
+{"id": "A14", "query": "Where does the word 'shepherd' appear?", "must_cite": ["BSB Concordance: shepherd"], "tags": ["concordance"]}
+{"id": "A15", "query": "What does James 2:26 say about faith?", "must_cite": ["JAS 2:26"]}
+{"id": "A16", "query": "What does the Bible say about anxiety?", "tags": ["implicit-topic"]}
+{"id": "A17", "query": "What is the number of the beast in Revelation 13?", "must_cite": ["REV 13:18"]}
+{"id": "A18", "query": "Summarize Genesis 1:1-3", "must_cite": ["GEN 1:1", "GEN 1:2", "GEN 1:3"], "tags": ["range"]}
+{"id": "A19", "query": "What is the structure of the book of Revelation?", "must_cite": ["BSB Book Outline: Revelation"], "tags": ["outline"]}
+{"id": "A20", "query": "What does Proverbs 3:5 say?", "must_cite": ["PRO 3:5"]}
+{"id": "A21", "query": "What does Ephesians 2:8-9 say about grace?", "must_cite": ["EPH 2:8", "EPH 2:9"]}
+{"id": "A22", "query": "What did Jesus say about worrying about tomorrow?", "tags": ["paraphrase"]}
+{"id": "N01", "query": "What is the capital of France?", "should_refuse": true, "tags": ["out-of-scope"]}
+{"id": "N02", "query": "What does Genesis 51 say?", "should_refuse": true, "tags": ["nonexistent-chapter"]}
+{"id": "N03", "query": "Summarize Revelation 23", "should_refuse": true, "tags": ["nonexistent-chapter"]}
+{"id": "N04", "query": "Who won the 2022 FIFA World Cup?", "should_refuse": true, "tags": ["out-of-scope"]}
+{"id": "N05", "query": "Write a Python function that sorts a list of numbers.", "should_refuse": true, "tags": ["out-of-scope"]}
+{"id": "N06", "query": "What is the current price of Bitcoin?", "should_refuse": true, "tags": ["out-of-scope"]}
+{"id": "N07", "query": "What does Psalm 151 say?", "should_refuse": true, "tags": ["nonexistent-chapter"]}
+{"id": "L01", "query": "Apa isi Yohanes 3:16?", "must_cite": ["JHN 3:16"], "tags": ["id-lang", "known-gap"]}
+{"id": "L02", "query": "Apa yang dikatakan Kejadian 1:1?", "must_cite": ["GEN 1:1"], "tags": ["id-lang", "known-gap"]}
+{"id": "L03", "query": "Apa kata Alkitab tentang pengampunan?", "tags": ["id-lang", "known-gap"]}

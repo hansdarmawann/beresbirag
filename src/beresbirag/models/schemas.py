@@ -178,6 +178,20 @@ class CitationItem(BaseModel):
     section_heading: str | None = None
     outline_path: str | None = None
     score: float = 0.0
+    used: bool = Field(default=False, description="True if the answer cites this chunk")
+
+
+class CitationReport(BaseModel):
+    """Classification of every bracket citation in an answer against the retrieved context."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    valid: list[str] = Field(default_factory=list)
+    partial: list[str] = Field(default_factory=list)
+    unsupported: list[str] = Field(default_factory=list)
+    unparsed: list[str] = Field(default_factory=list)
+    used_chunk_ids: list[str] = Field(default_factory=list)
+    has_citations: bool = False
 
 
 class RAGResponse(BaseModel):
@@ -193,4 +207,5 @@ class RAGResponse(BaseModel):
     effort: str = "minimal"
     answer_mode: AnswerMode = AnswerMode.LLM
     citations: list[CitationItem] = Field(default_factory=list)
+    citation_report: CitationReport | None = None
     retrieved_chunks: list[RetrievalResult] = Field(default_factory=list)

@@ -75,6 +75,8 @@ class Settings(BaseSettings):
     context_token_budget: int | None = Field(default=None, ge=1, alias="CONTEXT_TOKEN_BUDGET")
     context_chunk_token_cap: int | None = Field(default=None, ge=1, alias="CONTEXT_CHUNK_TOKEN_CAP")
     fast_path_enabled: bool = Field(default=False, alias="FAST_PATH_ENABLED")
+    # annotate: report citation validity only; strict: also strip unsupported citations
+    citation_policy: Literal["annotate", "strict"] = Field("annotate", alias="CITATION_POLICY")
     model_cache_dir: str = Field(default="./.model_cache", alias="MODEL_CACHE_DIR")
 
     # Dense & Sparse Embedding Settings
