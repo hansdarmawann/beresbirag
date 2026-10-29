@@ -1,12 +1,16 @@
-"""Acceptance tests for TASK-13 repository hygiene, caching, and formatting."""
+"""Acceptance tests for TASK-13 repository hygiene, caching, formatting, and CI checks."""
 
 from __future__ import annotations
 
+import importlib.metadata
 import inspect
 from pathlib import Path
 
 import pytest
+import yaml
 
+import beresbirag
+import beresbirag.api
 import beresbirag.config
 from beresbirag.config import Settings, resolve_data_file
 from beresbirag.llm import rag_chain
@@ -83,7 +87,6 @@ def test_vector_store_caching() -> None:
 
     assert call_count <= 1
 
-    count_after_5 = call_count
     qm.ensure_collection(recreate=True)
     count_after_recreate = call_count
 
@@ -107,3 +110,28 @@ def test_bsb_data_dir_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     source = inspect.getsource(beresbirag.config)
     assert ".worktrees" not in source
     assert "find_repo_root" not in source
+
+
+def test_version_consistency() -> None:
+    """4. Version consistency between package, metadata, and FastAPI app."""
+    assert beresbirag.__version__ == "0.2.0"
+    assert beresbirag.api.app.version == "0.2.0"
+    assert importlib.metadata.version("beresbirag") == "0.2.0"
+
+
+def test_ci_workflow_yaml() -> None:
+    """5. CI YAML validation for required linters, --no-merges, and ALLOWED_AUTHORS."""
+    repo_root = Path(__file__).resolve().parents[1]
+    ci_path = repo_root / ".github" / "workflows" / "ci.yml"
+    assert ci_path.is_file(), f"CI file missing at {ci_path}"
+
+    with open(ci_path, encoding="utf-8") as f:
+        content = f.read()
+        parsed = yaml.safe_load(content)
+
+    assert parsed is not None
+    assert "ruff format --check" in content
+    assert "mypy ./src" in content
+    assert "--no-merges" in content
+    assert "ALLOWED_AUTHORS" in content
+    assert "dependabot[bot]" in content

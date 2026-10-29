@@ -184,19 +184,19 @@ class Settings(BaseSettings):
 
     @property
     def usj_zip_file(self) -> Path:
-        return resolve_data_file(self.bsb_usj_zip_path, self.bsb_data_dir)
+        return resolve_data_file(self.bsb_usj_zip_path, self.bsb_data_dir).resolve()
 
     @property
     def outlines_pdf_file(self) -> Path:
-        return resolve_data_file(self.bsb_outlines_pdf_path, self.bsb_data_dir)
+        return resolve_data_file(self.bsb_outlines_pdf_path, self.bsb_data_dir).resolve()
 
     @property
     def topical_xlsx_file(self) -> Path:
-        return resolve_data_file(self.bsb_topical_xlsx_path, self.bsb_data_dir)
+        return resolve_data_file(self.bsb_topical_xlsx_path, self.bsb_data_dir).resolve()
 
     @property
     def concordance_xlsx_file(self) -> Path:
-        return resolve_data_file(self.bsb_concordance_xlsx_path, self.bsb_data_dir)
+        return resolve_data_file(self.bsb_concordance_xlsx_path, self.bsb_data_dir).resolve()
 
 
 @lru_cache(maxsize=1)

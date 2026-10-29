@@ -190,6 +190,8 @@ def verify_cases(
         issues.extend(
             VerificationIssue(case.id, msg) for msg in _verify_retrieval_case(case, corpus)
         )
-    for case in answer_cases:
-        issues.extend(VerificationIssue(case.id, msg) for msg in _verify_answer_case(case, corpus))
+    for ans_case in answer_cases:
+        issues.extend(
+            VerificationIssue(ans_case.id, msg) for msg in _verify_answer_case(ans_case, corpus)
+        )
     return issues

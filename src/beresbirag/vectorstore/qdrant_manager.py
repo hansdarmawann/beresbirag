@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -389,11 +389,11 @@ class QdrantManager:
     @staticmethod
     def build_filter(
         *,
-        source_types: list[SourceType | str] | None = None,
-        book_codes: list[str] | None = None,
+        source_types: Sequence[SourceType | str] | None = None,
+        book_codes: Sequence[str] | None = None,
         testament: str | None = None,
         chapter: int | None = None,
-        verse_refs: list[str] | None = None,
+        verse_refs: Sequence[str] | None = None,
         topic: str | None = None,
         concordance_word: str | None = None,
     ) -> models.Filter | None:

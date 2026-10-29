@@ -2,12 +2,17 @@ name: CI — beresbirag
 
 on:
   push:
-    branches: ["main", "feat/**"]
+    branches: ["main", "feat/**", "chore/**", "fix/**"]
   pull_request:
     branches: ["main"]
 
 permissions:
   contents: read
+
+env:
+  ALLOWED_AUTHORS: |
+    Hans Darmawan <work.hansdarmawan001@gmail.com>
+    dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>
 
 jobs:
   git-hygiene-and-test:
@@ -17,18 +22,37 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 10
+          fetch-depth: 0
 
       - name: Verify single-contributor Git authorship & no AI trailers
         run: |
           echo "Checking recent commit authors and commit bodies..."
-          BAD_AUTHORS=$(git log -n 5 --format="%an <%ae>" | grep -v "^Hans Darmawan <work.hansdarmawan001@gmail.com>$" || true)
-          if [ -n "$BAD_AUTHORS" ]; then
-            echo "ERROR: Unauthorized commit author detected:"
-            echo "$BAD_AUTHORS"
-            exit 1
+          if [ "${{ github.event_name }}" = "pull_request" ] && git cat-file -e "${{ github.event.pull_request.base.sha }}^{commit}" 2>/dev/null; then
+            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ] && git cat-file -e "${{ github.event.before }}^{commit}" 2>/dev/null; then
+            RANGE="${{ github.event.before }}..${{ github.sha }}"
+          else
+            RANGE="-n 5"
           fi
-          CO_AUTHORS=$(git log -n 5 --format="%b" | grep -Ei "Co-authored-by:|Generated with" || true)
+
+          echo "Inspecting commits with range: $RANGE"
+          if [ "$RANGE" = "-n 5" ]; then
+            AUTHORS=$(git log -n 5 --no-merges --format="%an <%ae>")
+            BODIES=$(git log -n 5 --no-merges --format="%b")
+          else
+            AUTHORS=$(git log --no-merges --format="%an <%ae>" "$RANGE" 2>/dev/null || git log -n 5 --no-merges --format="%an <%ae>")
+            BODIES=$(git log --no-merges --format="%b" "$RANGE" 2>/dev/null || git log -n 5 --no-merges --format="%b")
+          fi
+
+          while IFS= read -r author; do
+            [ -z "$author" ] && continue
+            if ! echo "$ALLOWED_AUTHORS" | grep -Fxq "$author"; then
+              echo "ERROR: Unauthorized commit author detected: $author"
+              exit 1
+            fi
+          done <<< "$AUTHORS"
+
+          CO_AUTHORS=$(echo "$BODIES" | grep -Ei "Co-authored-by:|Generated with" || true)
           if [ -n "$CO_AUTHORS" ]; then
             echo "ERROR: Forbidden Co-authored-by or AI attribution trailer found:"
             echo "$CO_AUTHORS"
@@ -47,7 +71,17 @@ jobs:
       - name: Run Ruff Linter
         shell: bash -el {0}
         run: |
-          ruff check ./src ./tests
+          ruff check ./src ./scripts ./tests
+
+      - name: Run Ruff Formatter Check
+        shell: bash -el {0}
+        run: |
+          ruff format --check ./src ./scripts ./tests
+
+      - name: Run Mypy Type Checker
+        shell: bash -el {0}
+        run: |
+          mypy ./src
 
       - name: Run Pytest Suite
         shell: bash -el {0}

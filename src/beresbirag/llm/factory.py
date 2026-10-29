@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Literal
+from typing import Literal, cast
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -55,8 +55,8 @@ def is_reasoning_model(model_name: str) -> bool:
 
 
 def resolve_llm_target(
-    provider: str | None, model_name: str | None, settings: Settings
-) -> tuple[str, str]:
+    provider: ProviderType | str | None, model_name: str | None, settings: Settings
+) -> tuple[ProviderType, str]:
     """Return (provider, model). Explicit model wins; otherwise LLM_MODEL only when
     provider == LLM_PROVIDER; otherwise DEFAULT_MODELS[provider]."""
     active_provider = (provider or settings.llm_provider).lower()
@@ -78,7 +78,7 @@ def resolve_llm_target(
             f"Choose a matching provider, or a {active_provider} model "
             f"(default: {DEFAULT_MODELS[active_provider]})."
         )
-    return active_provider, active_model
+    return cast(ProviderType, active_provider), active_model
 
 
 def _resolve_api_key(provider: str, api_key: str | None, settings: Settings) -> str:

@@ -35,7 +35,7 @@ class FastEmbedDenseEmbeddings(Embeddings):
                 model_name=self.model_name,
                 cache_dir=self.settings.model_cache_dir,
                 threads=self.settings.llm_num_thread,
-                **({"local_files_only": True} if self.settings.offline_mode else {}),
+                **({"local_files_only": True} if self.settings.offline_mode else {}),  # type: ignore[arg-type] # FastEmbed TextEmbedding kwargs
             )
         return self._model
 
@@ -109,7 +109,7 @@ def create_dense_embeddings(settings: Settings | None = None) -> Embeddings:
     if provider == "openai":
         return OpenAIEmbeddings(
             model=cfg.openai_embedding_model,
-            api_key=cfg.openai_api_key,  # type: ignore[arg-type]
+            api_key=cfg.openai_api_key,  # type: ignore[call-arg] # langchain-openai OpenAIEmbeddings keyword argument
         )
     return FastEmbedDenseEmbeddings(model_name=cfg.fastembed_dense_model, settings=cfg)
 
@@ -121,5 +121,5 @@ def create_sparse_embeddings(settings: Settings | None = None) -> SparseEmbeddin
         model_name=cfg.fastembed_sparse_model,
         cache_dir=cfg.model_cache_dir,
         threads=cfg.llm_num_thread,
-        **({"local_files_only": True} if cfg.offline_mode else {}),
+        **({"local_files_only": True} if cfg.offline_mode else {}),  # type: ignore[arg-type] # FastEmbedSparse kwargs
     )

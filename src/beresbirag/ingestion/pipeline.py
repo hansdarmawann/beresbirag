@@ -14,11 +14,12 @@ from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
     Progress,
+    TaskID,
     TextColumn,
     TimeElapsedColumn,
 )
 
-from beresbirag.config import Settings, find_repo_root, get_settings
+from beresbirag.config import Settings, get_settings, resolve_data_file
 from beresbirag.ingestion.concordance_parser import iter_concordance_chunks
 from beresbirag.ingestion.pdf_outline_parser import BookOutlineIndex
 from beresbirag.ingestion.topical_parser import iter_topical_chunks
@@ -355,7 +356,9 @@ class IngestionPipeline:
 
     @staticmethod
     def _load_default_manifest_hashes() -> dict[str, str]:
-        manifest_path = find_repo_root() / "data" / "corpus_manifest.json"
+        manifest_path = resolve_data_file("data/corpus_manifest.json")
+        if not manifest_path.is_file():
+            manifest_path = Path("data/corpus_manifest.json")
         if not manifest_path.is_file():
             return {}
         try:
@@ -386,5 +389,5 @@ class IngestionPipeline:
             upserted = self.qdrant_manager.upsert_chunks(batch, batch_size=batch_size)
             total += upserted
             if progress is not None and task_id is not None:
-                progress.update(task_id, advance=len(batch))
+                progress.update(TaskID(task_id), advance=len(batch))
         return total

@@ -18,6 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+import beresbirag
 from beresbirag.config import Settings, get_settings
 from beresbirag.llm.factory import (
     DEFAULT_MODELS,
@@ -157,7 +158,7 @@ async def lifespan(target_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="Berean Standard Bible RAG API",
     description="Grounded Scripture retrieval and small-LLM QA service powered by LangChain and Qdrant.",
-    version="0.1.0",
+    version=beresbirag.__version__,
     lifespan=lifespan,
 )
 
@@ -398,9 +399,9 @@ def get_pipeline_factory(
                 cached = build_pipeline(
                     retriever=retriever,
                     settings=settings,
-                    provider=resolved_provider,  # type: ignore[arg-type]
+                    provider=resolved_provider,
                     model_name=resolved_model,
-                    effort=resolved_effort,  # type: ignore[arg-type]
+                    effort=resolved_effort,
                 )
                 pipelines[cache_key] = cached
             return cached

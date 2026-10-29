@@ -73,7 +73,10 @@ def render_citation_report(
     )
     st.markdown(chips_html, unsafe_allow_html=True)
 
-    mode_str = answer_mode.value if hasattr(answer_mode, "value") else str(answer_mode or "")
+    if isinstance(answer_mode, AnswerMode):
+        mode_str = answer_mode.value
+    else:
+        mode_str = str(answer_mode or "")
     if citation_policy == "strict" and (
         unsupported_count > 0 or mode_str == AnswerMode.INSUFFICIENT_CONTEXT.value
     ):

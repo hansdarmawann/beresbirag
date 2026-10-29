@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from beresbirag.config import Settings, find_repo_root, resolve_data_file
+from beresbirag.config import Settings, resolve_data_file
 from beresbirag.models.books import (
     BSB_BOOKS,
     format_canonical_ref,
@@ -159,7 +159,7 @@ def test_rag_response_and_verse_range_models() -> None:
 
 
 def test_git_hook_and_repo_root_exist() -> None:
-    root = find_repo_root()
+    root = Path(__file__).resolve().parents[1]
     hook_file = root / ".githooks" / "commit-msg"
     assert hook_file.is_file()
     hook_text = hook_file.read_text(encoding="utf-8")
