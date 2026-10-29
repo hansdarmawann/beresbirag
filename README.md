@@ -174,3 +174,26 @@ for local Bible search and answers. The low profile reduces context, retrieval,
 and CPU thread budgets and enables deterministic passage/count answers.
 See [Offline setup and model transfer](docs/OFFLINE.md) for build/target steps,
 the 4 GB RAM budget, diagnostics, and limitations.
+
+---
+
+## 7. Streamlit UI
+
+The interactive Streamlit interface provides grounded scripture search and QA with two execution modes:
+
+- **Install**:
+  ``powershell
+  conda run -n beresbirag pip install -e ".[ui]"
+  # Or install with offline Ollama dependencies:
+  conda run -n beresbirag pip install -e ".[ui,offline]"
+  ``
+- **Run**:
+  ``powershell
+  conda run -n beresbirag beresbirag ui
+  # Or specify custom port and host:
+  conda run -n beresbirag beresbirag ui --port 8501 --host 127.0.0.1
+  ``
+- **Modes**:
+  - **Retrieve only (no LLM)**: Fast, zero-LLM search returning ranked chunks, canonical references, and intent classification. Defaults automatically when RESOURCE_PROFILE=low.
+  - **Answer with LLM**: Full RAG pipeline streaming grounded answers with citations, deterministic fast-path evaluation for exact citations and concordance counts, and context compression.
+- **Provider-safe model picker**: The UI model selector dynamically populates valid models for OpenAI, Anthropic, or Ollama, ensuring invalid provider/model pairings are prevented.

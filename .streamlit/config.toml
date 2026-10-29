@@ -1,0 +1,11 @@
+[browser]
+gatherUsageStats = false
+
+[server]
+headless = true
+runOnSave = false
+fileWatcherType = "none"   # saves CPU on dual-core machines
+
+[client]
+toolbarMode = "minimal"
+

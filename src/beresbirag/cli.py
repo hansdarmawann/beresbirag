@@ -259,5 +259,43 @@ def doctor_command() -> None:
         raise typer.Exit(1)
 
 
+@app.command("ui")
+def ui_command(
+    port: int = typer.Option(8501, "--port", "-p", help="Port to run Streamlit on."),
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host address to bind Streamlit server."),
+) -> None:
+    """Launch the BSB RAG Streamlit user interface."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    try:
+        import streamlit  # noqa: F401
+    except ImportError as err:
+        console.print(
+            "[bold red]Streamlit is not installed.[/bold red]\n"
+            "[yellow]Run 'pip install -e \".[ui]\"' or 'pip install streamlit' to install it.[/yellow]"
+        )
+        raise typer.Exit(1) from err
+
+    app_path = Path(__file__).resolve().parent / "ui" / "streamlit_app.py"
+    cmd = [
+        sys.executable,
+        "-m",
+        "streamlit",
+        "run",
+        str(app_path),
+        "--server.port",
+        str(port),
+        "--server.address",
+        host,
+        "--server.headless",
+        "true",
+        "--browser.gatherUsageStats",
+        "false",
+    ]
+    subprocess.run(cmd, check=False)
+
+
 if __name__ == "__main__":
     app()
