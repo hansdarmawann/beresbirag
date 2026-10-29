@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import streamlit as st
 
@@ -14,17 +14,25 @@ from beresbirag.llm.factory import (
     ProviderModelMismatchError,
     ProviderUnavailableError,
 )
-from beresbirag.models.schemas import CitationItem, QueryIntent, RetrievalResult
+from beresbirag.models.schemas import (
+    AnswerMode,
+    CitationItem,
+    CitationReport,
+    QueryIntent,
+    RetrievalResult,
+)
 from beresbirag.retrieval.query_router import QueryPlan
 from beresbirag.vectorstore.qdrant_manager import CollectionConfigError
 
 
-def render_intent_badge(plan: QueryPlan | None) -> None:
+def render_intent_badge(plan: QueryPlan | QueryIntent | str | None) -> None:
     """Render a badge showing the classified query intent."""
     if plan is None:
-        intent = QueryIntent.HYBRID_GENERAL
-    else:
+        intent: Any = QueryIntent.HYBRID_GENERAL
+    elif hasattr(plan, "intent"):
         intent = plan.intent
+    else:
+        intent = plan
 
     intent_val = intent.value if hasattr(intent, "value") else str(intent)
     st.markdown(
@@ -35,18 +43,72 @@ def render_intent_badge(plan: QueryPlan | None) -> None:
     )
 
 
+def render_citation_report(
+    report: CitationReport | dict[str, Any] | None,
+    *,
+    citation_policy: str = "annotate",
+    answer_mode: AnswerMode | str | None = None,
+) -> None:
+    """Render valid, partial, and unsupported citation counts as colored chips, plus strict warnings."""
+    if report is None:
+        return
+    parsed = (
+        CitationReport.model_validate(report)
+        if isinstance(report, dict)
+        else report
+    )
+    valid_count = len(parsed.valid)
+    partial_count = len(parsed.partial)
+    unsupported_count = len(parsed.unsupported)
+    unsupported_suffix = (
+        f" ({', '.join(parsed.unsupported)})" if parsed.unsupported else ""
+    )
+
+    chips_html = (
+        '<div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0;">'
+        f'<span style="background-color: #1f4d2e; color: #7ee787; padding: 3px 10px; '
+        f'border-radius: 12px; font-size: 0.85em; font-weight: 600;">'
+        f"Valid: {valid_count}</span>"
+        f'<span style="background-color: #4d3810; color: #f2cc60; padding: 3px 10px; '
+        f'border-radius: 12px; font-size: 0.85em; font-weight: 600;">'
+        f"Partial: {partial_count}</span>"
+        f'<span style="background-color: #5c1e24; color: #ffa198; padding: 3px 10px; '
+        f'border-radius: 12px; font-size: 0.85em; font-weight: 600;">'
+        f"Unsupported: {unsupported_count}{unsupported_suffix}</span>"
+        "</div>"
+    )
+    st.markdown(chips_html, unsafe_allow_html=True)
+
+    mode_str = (
+        answer_mode.value if hasattr(answer_mode, "value") else str(answer_mode or "")
+    )
+    if citation_policy == "strict" and (
+        unsupported_count > 0 or mode_str == AnswerMode.INSUFFICIENT_CONTEXT.value
+    ):
+        st.warning(
+            "Strict citation policy active: unsupported citations were stripped or the answer "
+            "was replaced because no grounded citation remained."
+        )
+
+
 def render_citations_table(citations: list[CitationItem]) -> None:
-    """Render citations in a clean table format."""
+    """Render citations in a clean table format with used citations highlighted."""
     if not citations:
         return
 
     table_data = []
     for idx, cit in enumerate(citations, start=1):
-        src_val = cit.source_type.value if hasattr(cit.source_type, "value") else str(cit.source_type)
+        src_val = (
+            cit.source_type.value
+            if hasattr(cit.source_type, "value")
+            else str(cit.source_type)
+        )
+        ref_label = f"★ {cit.canonical_ref}" if cit.used else cit.canonical_ref
         table_data.append(
             {
                 "#": idx,
-                "Reference": cit.canonical_ref,
+                "Used": "✅ Yes" if cit.used else "No",
+                "Reference": ref_label,
                 "Source Type": src_val,
                 "Score": f"{cit.score:.3f}",
                 "Chunk ID": cit.chunk_id,
@@ -114,4 +176,3 @@ def render_error(exc: Exception) -> None:
         st.error(f"Connection Error: {exc} Check services or run `beresbirag doctor`.")
     else:
         st.error(f"Error: {exc}")
-

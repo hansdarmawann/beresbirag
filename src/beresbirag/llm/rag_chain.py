@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
+from time import perf_counter
 from typing import Any, Literal
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -39,6 +40,8 @@ class PreparedQuery:
     context: str
     fast_answer: str | None
     answer_mode: AnswerMode
+    retrieval_ms: float = 0.0
+    prepared_at: float = 0.0
 
 
 def format_context_blocks(results: list[RetrievalResult]) -> str:
@@ -156,6 +159,7 @@ class BSBRAGPipeline:
 
     def prepare(self, query: str, top_k: int | None = None) -> PreparedQuery:
         """Retrieve, select deterministic answers, and budget copies of source text."""
+        start_t = perf_counter()
         effective_top_k = top_k if top_k is not None else self.settings.retrieval_top_k
         plan, results = self.retriever.retrieve(query, top_k=effective_top_k)
 
@@ -195,8 +199,18 @@ class BSBRAGPipeline:
                     result = results[0].model_copy(deep=True)
                     result.chunk.text = "\n".join(lines[:-1])
                     results = [result]
+        context_str = format_context_blocks(results)
+        prepared_at = perf_counter()
+        retrieval_ms = max(0.0, (prepared_at - start_t) * 1000.0)
         return PreparedQuery(
-            query, plan, results, format_context_blocks(results), fast_answer, mode
+            query,
+            plan,
+            results,
+            context_str,
+            fast_answer,
+            mode,
+            retrieval_ms=round(retrieval_ms, 2),
+            prepared_at=prepared_at,
         )
 
     def _prompt_tokens(self, query: str, results: list[RetrievalResult]) -> int:
@@ -244,6 +258,16 @@ class BSBRAGPipeline:
                 text = INSUFFICIENT_CONTEXT_ANSWER
                 mode = AnswerMode.INSUFFICIENT_CONTEXT
 
+        now = perf_counter()
+        retrieval_ms = max(0.0, float(getattr(prepared, "retrieval_ms", 0.0)))
+        prepared_at = float(getattr(prepared, "prepared_at", 0.0))
+        generation_ms = (
+            max(0.0, round((now - prepared_at) * 1000.0, 2))
+            if prepared_at > 0.0
+            else 0.0
+        )
+        total_ms = round(retrieval_ms + generation_ms, 2)
+
         return RAGResponse(
             query=prepared.query,
             answer=text,
@@ -255,6 +279,11 @@ class BSBRAGPipeline:
             citations=citations,
             citation_report=report,
             retrieved_chunks=prepared.results,
+            timings={
+                "retrieval_ms": retrieval_ms,
+                "generation_ms": generation_ms,
+                "total_ms": total_ms,
+            },
         )
 
     def ask(self, query: str, top_k: int | None = None) -> RAGResponse:

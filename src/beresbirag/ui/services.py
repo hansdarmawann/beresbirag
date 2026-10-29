@@ -1,8 +1,12 @@
-"""Services, dependency injection, and model options for Streamlit UI."""
+"""Services, dependency injection, model options, and feedback persistence for Streamlit UI."""
 
 from __future__ import annotations
 
-from typing import Protocol
+import json
+import os
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Literal, Protocol
 
 import httpx
 import streamlit as st
@@ -12,6 +16,9 @@ from beresbirag.llm.factory import DEFAULT_MODELS, FOREIGN_MODEL_PREFIXES
 from beresbirag.llm.rag_chain import BSBRAGPipeline
 from beresbirag.retrieval.hybrid_retriever import BSBHybridRetriever
 from beresbirag.vectorstore.qdrant_manager import QdrantManager
+
+# Optional module-level override for tests (fallback is FEEDBACK_DIR env var / Settings.feedback_dir)
+FEEDBACK_DIR: str | Path | None = None
 
 
 class ServiceFactory(Protocol):
@@ -41,6 +48,47 @@ def get_service_factory() -> ServiceFactory:
     if _custom_service_factory is not None:
         return _custom_service_factory
     return _DefaultCachedServiceFactory()
+
+
+def resolve_feedback_dir(override: str | Path | None = None) -> Path:
+    """Resolve the active feedback directory from explicit override, module override, env, or settings."""
+    if override is not None:
+        return Path(override)
+    if FEEDBACK_DIR is not None:
+        return Path(FEEDBACK_DIR)
+    env_dir = os.environ.get("FEEDBACK_DIR")
+    if env_dir and env_dir.strip():
+        return Path(env_dir.strip())
+    return Path(get_settings().feedback_dir)
+
+
+def append_feedback(
+    turn: dict[str, Any],
+    rating: Literal["up", "down", "👍", "👎"],
+    comment: str = "",
+    feedback_dir: str | Path | None = None,
+) -> Path:
+    """Append one feedback entry as a JSON line to ``{FEEDBACK_DIR}/feedback.jsonl``."""
+    target_dir = resolve_feedback_dir(feedback_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    file_path = target_dir / "feedback.jsonl"
+
+    norm_rating = "down" if rating in ("down", "👎") else "up"
+    record = {
+        "ts": datetime.now(UTC).isoformat(),
+        "query": turn.get("query", ""),
+        "answer": turn.get("answer", ""),
+        "answer_mode": turn.get("answer_mode", "llm"),
+        "provider": turn.get("provider", ""),
+        "model": turn.get("model", ""),
+        "citation_report": turn.get("citation_report"),
+        "timings": turn.get("timings", {}),
+        "rating": norm_rating,
+        "comment": comment,
+    }
+    with file_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return file_path
 
 
 @st.cache_resource(show_spinner=False)
@@ -203,4 +251,3 @@ def provider_options(settings: Settings) -> list[str]:
         # Put active first, followed by remaining
         return [active] + [p for p in all_providers if p != active]
     return all_providers
-

@@ -8,6 +8,11 @@ bsb_usj.zip
 bsb_book_outlines.pdf
 bsb_concordance.xlsx
 bsb_topical_index.xlsx
+data/raw
+data/processed
+!data/corpus_manifest.json
+!requirements.lock
+!scripts/
 *.usj
 *.xlsx
 *.pdf
@@ -15,6 +20,11 @@ bsb_topical_index.xlsx
 qdrant_storage
 .fastembed_cache
 .huggingface_cache
+.model_cache
+snapshots
+feedback
+eval/reports
+eval/answer_cases.draft.jsonl
 .env
 .env.*
 !.env.example

@@ -3,14 +3,22 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import UTC, datetime
+from typing import Any
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_qdrant import QdrantVectorStore, RetrievalMode, SparseEmbeddings
 from qdrant_client import QdrantClient, models
 
+from beresbirag import __version__
 from beresbirag.config import Settings, get_settings
-from beresbirag.models.schemas import ChunkDocument, RetrievalResult, SourceType
+from beresbirag.models.schemas import (
+    ChunkDocument,
+    RetrievalResult,
+    SourceType,
+    make_point_uuid,
+)
 from beresbirag.vectorstore.embeddings import (
     create_dense_embeddings,
     create_sparse_embeddings,
@@ -94,14 +102,22 @@ class QdrantManager:
             return size_attr
         return self.settings.dense_vector_size
 
+    @property
+    def meta_collection_name(self) -> str:
+        """Name of the companion index-metadata collection."""
+        return f"{self.collection_name}__meta"
+
     def collection_exists(self) -> bool:
         """Return True if the target Qdrant collection already exists."""
         return bool(self.client.collection_exists(self.collection_name))
 
     def ensure_collection(self, recreate: bool = False) -> None:
         """Create the hybrid Qdrant collection and payload indexes if needed."""
-        if recreate and self.collection_exists():
-            self.client.delete_collection(self.collection_name)
+        if recreate:
+            if self.collection_exists():
+                self.client.delete_collection(self.collection_name)
+            if self.client.collection_exists(self.meta_collection_name):
+                self.client.delete_collection(self.meta_collection_name)
 
         if not self.collection_exists():
             self.client.create_collection(
@@ -123,6 +139,89 @@ class QdrantManager:
             self._ensure_payload_indexes()
             # Freshly created from the active configuration, so it is valid by construction.
             self._validated = True
+
+    def write_index_metadata(
+        self,
+        metadata: dict[str, Any] | None = None,
+        *,
+        max_verses_per_chunk: int = 10,
+        verse_overlap: int = 2,
+        corpus_manifest: dict[str, str] | None = None,
+        dense_model: str | None = None,
+        sparse_model: str | None = None,
+        embedding_provider: str | None = None,
+        dense_dim: int | None = None,
+        recreate: bool = False,
+    ) -> dict[str, Any]:
+        """Write index identity and corpus manifest metadata to ``{collection}__meta``."""
+        if recreate and self.client.collection_exists(self.meta_collection_name):
+            self.client.delete_collection(self.meta_collection_name)
+
+        if not self.client.collection_exists(self.meta_collection_name):
+            self.client.create_collection(
+                collection_name=self.meta_collection_name,
+                vectors_config=models.VectorParams(
+                    size=1,
+                    distance=models.Distance.COSINE,
+                ),
+            )
+
+        provider = embedding_provider or self.settings.resolved_embedding_provider
+        resolved_dense_model = dense_model or (
+            self.settings.openai_embedding_model
+            if provider == "openai"
+            else self.settings.fastembed_dense_model
+        )
+        resolved_sparse_model = sparse_model or self.settings.fastembed_sparse_model
+        resolved_dense_dim = (
+            dense_dim if dense_dim is not None else self.dense_vector_size
+        )
+
+        payload: dict[str, Any] = {
+            "embedding_provider": provider,
+            "dense_model": resolved_dense_model,
+            "dense_dim": resolved_dense_dim,
+            "sparse_model": resolved_sparse_model,
+            "sparse_modifier": "idf",
+            "chunking": {
+                "max_verses_per_chunk": max_verses_per_chunk,
+                "verse_overlap": verse_overlap,
+            },
+            "corpus_manifest": dict(corpus_manifest or {}),
+            "beresbirag_version": __version__,
+            "ingested_at": datetime.now(UTC).isoformat(),
+        }
+        if metadata:
+            payload.update(metadata)
+
+        point_id = make_point_uuid("index-meta")
+        self.client.upsert(
+            collection_name=self.meta_collection_name,
+            points=[
+                models.PointStruct(
+                    id=point_id,
+                    vector=[1.0],
+                    payload=payload,
+                )
+            ],
+        )
+        self._validated = False
+        return payload
+
+    def read_index_metadata(self) -> dict[str, Any] | None:
+        """Read the index metadata payload from ``{collection}__meta``, or None if absent."""
+        if not self.client.collection_exists(self.meta_collection_name):
+            return None
+        point_id = make_point_uuid("index-meta")
+        records = self.client.retrieve(
+            collection_name=self.meta_collection_name,
+            ids=[point_id],
+            with_payload=True,
+            with_vectors=False,
+        )
+        if not records:
+            return None
+        return dict(records[0].payload or {})
 
     def validate_collection(self) -> None:
         """Raise CollectionConfigError if the existing collection mismatches the active config."""
@@ -157,6 +256,28 @@ class QdrantManager:
                 f"Collection '{self.collection_name}' sparse vector '{SPARSE_VECTOR_NAME}' has "
                 f"modifier={modifier!s}, but BM25 requires modifier=idf. {RECREATE_REMEDY}"
             )
+
+        meta = self.read_index_metadata()
+        if isinstance(meta, dict):
+            provider = self.settings.resolved_embedding_provider
+            expected_dense_model = (
+                self.settings.openai_embedding_model
+                if provider == "openai"
+                else self.settings.fastembed_dense_model
+            )
+            expected_sparse_model = self.settings.fastembed_sparse_model
+            actual_dense_model = meta.get("dense_model")
+            if actual_dense_model and actual_dense_model != expected_dense_model:
+                raise CollectionConfigError(
+                    f"Collection '{self.collection_name}' metadata dense_model='{actual_dense_model}' "
+                    f"mismatches active model '{expected_dense_model}'. {RECREATE_REMEDY}"
+                )
+            actual_sparse_model = meta.get("sparse_model")
+            if actual_sparse_model and actual_sparse_model != expected_sparse_model:
+                raise CollectionConfigError(
+                    f"Collection '{self.collection_name}' metadata sparse_model='{actual_sparse_model}' "
+                    f"mismatches active model '{expected_sparse_model}'. {RECREATE_REMEDY}"
+                )
 
     def _ensure_validated(self) -> None:
         """Validate the collection once per manager instance (skipped while it does not exist)."""

@@ -197,3 +197,9 @@ The interactive Streamlit interface provides grounded scripture search and QA wi
   - **Retrieve only (no LLM)**: Fast, zero-LLM search returning ranked chunks, canonical references, and intent classification. Defaults automatically when RESOURCE_PROFILE=low.
   - **Answer with LLM**: Full RAG pipeline streaming grounded answers with citations, deterministic fast-path evaluation for exact citations and concordance counts, and context compression.
 - **Provider-safe model picker**: The UI model selector dynamically populates valid models for OpenAI, Anthropic, or Ollama, ensuring invalid provider/model pairings are prevented.
+
+---
+
+## 8. Operations
+
+Production operational features—including shared FastAPI lifespan resources, `/livez` and `/readyz` health/readiness probes, `X-API-Key` authentication, token-bucket rate limiting, `/query/stream` Server-Sent Events (SSE), structured JSON logging, constant-memory streaming ingestion with `{collection}__meta` index validation, `requirements.lock` dependency locking, corpus SHA-256 verification (`scripts/verify_corpus.py`), and the UI feedback-to-evaluation loop (`scripts/feedback_to_eval.py`)—are documented in [Operations Guide](docs/OPERATIONS.md).
