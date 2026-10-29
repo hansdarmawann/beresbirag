@@ -12,6 +12,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import BasePromptTemplate
 
 from beresbirag.config import Settings, get_settings
+from beresbirag.llm.citations import strip_unsupported_citations, validate_citations
 from beresbirag.llm.context_budget import estimate_tokens, fit_context
 from beresbirag.llm.factory import ProviderUnavailableError, create_chat_model, resolve_llm_target
 from beresbirag.llm.fast_path import try_fast_answer
@@ -222,15 +223,37 @@ class BSBRAGPipeline:
 
     def finalize(self, prepared: PreparedQuery, answer: str) -> RAGResponse:
         provider_label, model_label = self._resolve_model_metadata()
+        text = str(answer).strip()
+        mode = prepared.answer_mode
+        report = validate_citations(text, prepared.results)
+        used = set(report.used_chunk_ids)
+        citations = [
+            item.model_copy(update={"used": item.chunk_id in used})
+            for item in build_citations(prepared.results)
+        ]
+        citations.sort(key=lambda item: not item.used)  # stable: used first
+
+        # Fast-path answers are verbatim BSB text and are never rewritten.
+        if self.settings.citation_policy == "strict" and mode != AnswerMode.FAST_PATH:
+            text = strip_unsupported_citations(text, report.unsupported)
+            if (
+                mode == AnswerMode.LLM
+                and not (report.valid or report.partial)
+                and INSUFFICIENT_CONTEXT_ANSWER not in text
+            ):
+                text = INSUFFICIENT_CONTEXT_ANSWER
+                mode = AnswerMode.INSUFFICIENT_CONTEXT
+
         return RAGResponse(
             query=prepared.query,
-            answer=str(answer).strip(),
+            answer=text,
             intent=self._extract_intent(prepared.plan),
             provider=provider_label,
             model=model_label,
             effort=self.effort,
-            answer_mode=prepared.answer_mode,
-            citations=build_citations(prepared.results),
+            answer_mode=mode,
+            citations=citations,
+            citation_report=report,
             retrieved_chunks=prepared.results,
         )
 

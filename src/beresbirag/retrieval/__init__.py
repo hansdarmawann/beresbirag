@@ -1,7 +1,13 @@
 """Deterministic query routing, hybrid retrieval, and reranking for the BSB RAG pipeline."""
 
-from beresbirag.retrieval.hybrid_retriever import BSBHybridRetriever, BSBLangChainRetriever
+from beresbirag.retrieval.hybrid_retriever import (
+    BOOK_SCOPED_SOURCES,
+    BSBHybridRetriever,
+    BSBLangChainRetriever,
+)
 from beresbirag.retrieval.query_router import (
+    INTENT_PRECEDENCE,
+    INTENT_SOURCES,
     QueryPlan,
     extract_concordance_word,
     extract_topic_keyword,
@@ -17,9 +23,12 @@ from beresbirag.retrieval.reference_parser import (
 from beresbirag.retrieval.reranker import EXACT_MATCH_BONUS, PassageReranker
 
 __all__ = [
+    "BOOK_SCOPED_SOURCES",
     "BSBHybridRetriever",
     "BSBLangChainRetriever",
     "EXACT_MATCH_BONUS",
+    "INTENT_PRECEDENCE",
+    "INTENT_SOURCES",
     "MAX_EXPANDED_REFS",
     "PassageReranker",
     "QueryPlan",
